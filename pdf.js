@@ -27,7 +27,7 @@ async function generarPDF(){
     doc.text(`Presupuesto: ${numero}`, 14, 42);
     doc.text(`Fecha: ${fecha}`, 140, 42);
 
-    // CLIENTE
+    // CLIENTEd
     doc.setFontSize(14);
     doc.text("DATOS DEL CLIENTE", 14, 55);
 

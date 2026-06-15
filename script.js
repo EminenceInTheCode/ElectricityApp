@@ -364,7 +364,7 @@ function descargarPresupuesto(index) {
 }
 
 // ==========================================
-// FUNCIONES DE UTILIDAD GENERAL
+// FUNCIONES DE UTILIDAD GEdNERAL
 // ==========================================
 function toggleDarkMode() {
     document.body.classList.toggle("dark");

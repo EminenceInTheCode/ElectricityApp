@@ -660,7 +660,7 @@ body.dark .btn-tarea-status { background: #3a3a3a; color: white; }
 body.dark .btn-tarea-delete { background: #4c1d21; color: #ff858d; }
 
 .estado-Vencido {
-    color: #dc3545; /* Rojo de aDlerta */
+    color: #dc3545; /* Rojo ded aDlerta */
     font-weight: bold;
     text-transform: uppercase;
     font-size: 12px;
