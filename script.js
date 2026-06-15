@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById("login-container").style.display = "none";
         inicializarApp();
     } else {
-        // Si no está logueado, nos aseguramos que la pantalla de login esté visible
+        // Si no está logueado, nos Aaseguramos que la pantalla de login esté visible
         document.getElementById("login-container").style.display = "flex";
     }
 });
