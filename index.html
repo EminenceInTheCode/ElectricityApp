@@ -6,28 +6,26 @@
     <title>Presupuestos</title>
     
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <script src="script.js"></script>
-    <script src="pdf.js"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-    <div id="login-container" style="display: flex; position: fixed; top:0; left:0; width:100vw; height:100vh; background: var(--bg-main); z-index: 9999; align-items: center; justify-content: center;">
-        <div class="card" style="width: 100%; max-width: 400px; padding: 30px; text-align: center;">
+
+    <div id="login-container" style="display: flex; position: fixed; top:0; left:0; width:100vw; height:100vh; background: #f4f6f9; z-index: 9999; align-items: center; justify-content: center;">
+        <div class="card" style="width: 100%; max-width: 400px; padding: 30px; text-align: center; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <div style="font-size: 50px; margin-bottom: 10px;">⚡</div>
-            <h2 style="margin-bottom: 20px;">Acceso SirDrolet</h2>
+            <h2 style="margin-bottom: 20px; color: #0360eb;">Acceso SirDrolet</h2>
             <div style="text-align: left; margin-bottom: 15px;">
-                <label>Correo Electrónico</label>
-                <input type="email" id="login-email" placeholder="tu@email.com" style="width:100%; padding:10px; margin-top:5px; border:1px solid var(--border-color); border-radius:6px;">
+                <label style="display:block; font-weight:600; margin-bottom:5px;">Correo Electrónico</label>
+                <input type="email" id="login-email" placeholder="tu@email.com" style="width:100%; padding:12px; border:1px solid #dee2e6; border-radius:6px;">
             </div>
             <div style="text-align: left; margin-bottom: 20px;">
-                <label>Contraseña</label>
-                <input type="password" id="login-password" placeholder="••••••••" style="width:100%; padding:10px; margin-top:5px; border:1px solid var(--border-color); border-radius:6px;">
+                <label style="display:block; font-weight:600; margin-bottom:5px;">Contraseña</label>
+                <input type="password" id="login-password" placeholder="••••••••" style="width:100%; padding:12px; border:1px solid #dee2e6; border-radius:6px;">
             </div>
-            <button onclick="iniciarSesion()" style="width: 100%; padding: 12px; background: var(--color-primary); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">Ingresar Seguro</button>
-            <p id="login-error" style="color: var(--color-danger); margin-top: 15px; font-size: 14px; display: none;"></p>
+            <button onclick="iniciarSesion()" style="width: 100%; padding: 12px; background: #0360eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">Ingresar Seguro</button>
+            <p id="login-error" style="color: #dc3545; margin-top: 15px; font-size: 14px; display: none;"></p>
         </div>
     </div>
 
@@ -59,162 +57,124 @@
             </div>
         </section>
 
-        <div class="layout-main">
+        <section class="card">
+            <h2>📄 Datos del Presupuesto</h2>
+            <div class="grid">
+                <div>
+                    <label>N° Presupuesto</label>
+                    <input type="text" id="numeroPresupuesto" value="PRES-0001">
+                </div>
+                <div>
+                    <label>Fecha</label>
+                    <input type="date" id="fecha">
+                </div>
+                <div>
+                    <label>Vencimiento</label>
+                    <input type="date" id="vencimiento">
+                </div>
+                <div>
+                    <label>Estado</label>
+                    <select id="estado" onchange="cargarHistorial()">
+                        <option>Pendiente</option>
+                        <option>Aceptado</option>
+                        <option>Rechazado</option>
+                        <option>Cobrado</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>👤 Datos del Cliente</h2>
+            <div class="buscador-clientes">
+                <label>📋 Cargar cliente frecuente:</label>
+                <select id="clienteSelect" onchange="cargarDatosCliente()">
+                    <option value="">-- Cargar como cliente nuevo --</option>
+                </select>
+            </div>
             
-            <div class="col-presupuestos">
-                <section class="card">
-                    <h2>📄 Datos del Presupuesto</h2>
-                    <div class="grid">
-                        <div>
-                            <label>N° Presupuesto</label>
-                            <input type="text" id="numeroPresupuesto" value="PRES-0001">
-                        </div>
-                        <div>
-                            <label>Fecha</label>
-                            <input type="date" id="fecha">
-                        </div>
-                        <div>
-                            <label>Vencimiento</label>
-                            <input type="date" id="vencimiento">
-                        </div>
-                        <div>
-                            <label>Estado</label>
-                            <select id="estado" onchange="cargarHistorial()">
-                                <option>Pendiente</option>
-                                <option>Aceptado</option>
-                                <option>Rechazado</option>
-                                <option>Cobrado</option>
-                            </select>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="card">
-                    <h2>👤 Datos del Cliente</h2>
-                    <div class="buscador-clientes">
-                        <label>📋 Cargar cliente frecuente:</label>
-                        <select id="clienteSelect" onchange="cargarDatosCliente()">
-                            <option value="">-- Cargar como cliente nuevo --</option>
-                        </select>
-                    </div>
-                    
-                    <div class="grid">
-                        <input type="text" id="nombre" placeholder="Nombre">
-                        <input type="text" id="apellido" placeholder="Apellido">
-                        <input type="text" id="telefono" placeholder="Teléfono">
-                        <input type="email" id="email" placeholder="Email">
-                        <input type="text" id="direccion" placeholder="Dirección">
-                        <input type="text" id="localidad" placeholder="Localidad">
-                    </div>
-                </section>
-
-                <section class="card">
-                    <h2>🔧 Mano de Obra</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Trabajo</th>
-                                <th>Cantidad</th>
-                                <th>Precio</th>
-                                <th>Total</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="trabajos">
-                        </tbody>
-                    </table>
-                    <button onclick="agregarTrabajo()">➕ Agregar Trabajo</button>
-                </section>
-
-                <section class="card">
-                    <h2>🛒 Materiales (Opcional)</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Descripción del Material</th>
-                                <th>Cantidad</th>
-                                <th>Precio Unit.</th>
-                                <th>Total</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="materiales">
-                        </tbody>
-                    </table>
-                    <button onclick="agregarMaterial()">➕ Agregar Material</button>
-                </section>
-
-                <section class="card">
-                    <h2>💰 Configuración</h2>
-                    <div class="grid">
-                        <div>
-                            <label>Ganancia M.O. (%)</label>
-                            <input type="number" id="ganancia" value="30" onchange="calcularTotal()">
-                        </div>
-                        <div>
-                            <label>Descuento (%)</label>
-                            <input type="number" id="descuento" value="0" onchange="calcularTotal()">
-                        </div>
-                        <div>
-                            <label>Viáticos ($)</label>
-                            <input type="number" id="viaticos" value="0" onchange="calcularTotal()">
-                        </div>
-                    </div>
-                </section>
-
-                <section class="card">
-                    <h2>📝 Observaciones</h2>
-                    <textarea id="observaciones" rows="5" placeholder="Garantía, aclaraciones, materiales a cargo del cliente..."></textarea>
-                </section>
-
-                <section class="card resumen">
-                    <h3>Subtotal Mano de Obra: $<span id="subtotal-mo">0</span></h3>
-                    <h3>Subtotal Materiales: $<span id="subtotal-mat">0</span></h3>
-                    <h1>TOTAL: $<span id="totalGeneral">0</span></h1>
-                </section>
-
-                <section class="acciones">
-                    <button onclick="guardarPresupuesto()">💾 Guardar</button>
-                    <button onclick="generarPDF()">📄 Generar PDF</button>
-                    <button onclick="generarDatosPrueba()">🧪 Datos de Prueba</button>
-                </section>
+            <div class="grid">
+                <input type="text" id="nombre" placeholder="Nombre">
+                <input type="text" id="apellido" placeholder="Apellido">
+                <input type="text" id="telefono" placeholder="Teléfono">
+                <input type="email" id="email" placeholder="Email">
+                <input type="text" id="direccion" placeholder="Dirección">
+                <input type="text" id="localidad" placeholder="Localidad">
             </div>
+        </section>
 
-            <div class="col-agenda">
-                <section class="card agenda-card">
-                    <h2>📅 Agenda de Trabajos</h2>
-                    
-                    <div class="agenda-form">
-                        <label>¿Qué tengo que hacer?</label>
-                        <input type="text" id="agendaTarea" placeholder="Ej: Cambiar térmica en lo de Juan">
-                        
-                        <div class="agenda-fechas">
-                            <div>
-                                <label>Fecha que hablé</label>
-                                <input type="date" id="agendaFechaHable">
-                            </div>
-                            <div>
-                                <label>Fecha para ir</label>
-                                <input type="date" id="agendaFechaIr">
-                            </div>
-                        </div>
-                        
-                        <label>Estado Inicial</label>
-                        <select id="agendaEstado">
-                            <option value="Pendiente">⏳ Pendiente</option>
-                            <option value="Aceptado">✅ Aceptado</option>
-                            <option value="Terminado">🏁 Terminado</option>
-                        </select>
-                        
-                        <button onclick="agregarTareaAgenda()" style="width:100%; margin-top:12px; background-color:var(--color-primary); color:white;">➕ Anotar Trabajo</button>
-                    </div>
+        <section class="card">
+            <h2>🔧 Mano de Obra</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Trabajo</th>
+                        <th>Cantidad</th>
+                        <th>Precio</th>
+                        <th>Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="trabajos">
+                </tbody>
+            </table>
+            <button onclick="agregarTrabajo()">➕ Agregar Trabajo</button>
+        </section>
 
-                    <div id="agendaLista" class="agenda-lista">
-                        </div>
-                </section>
+        <section class="card">
+            <h2>🛒 Materiales (Opcional)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descripción del Material</th>
+                        <th>Cantidad</th>
+                        <th>Precio Unit.</th>
+                        <th>Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="materiales">
+                </tbody>
+            </table>
+            <button onclick="agregarMaterial()">➕ Agregar Material</button>
+        </section>
+
+        <section class="card">
+            <h2>💰 Configuración</h2>
+            <div class="grid">
+                <div>
+                    <label>Ganancia M.O. (%)</label>
+                    <input type="number" id="ganancia" value="30" onchange="calcularTotal()">
+                </div>
+                <div>
+                    <label>Descuento (%)</label>
+                    <input type="number" id="descuento" value="0" onchange="calcularTotal()">
+                </div>
+                <div>
+                    <label>Viáticos ($)</label>
+                    <input type="number" id="viaticos" value="0" onchange="calcularTotal()">
+                </div>
             </div>
+        </section>
 
-        </div> <section class="card">
+        <section class="card">
+            <h2>📝 Observaciones</h2>
+            <textarea id="observaciones" rows="5" placeholder="Garantía, aclaraciones, materiales a cargo del cliente..."></textarea>
+        </section>
+
+        <section class="card resumen">
+            <h3>Subtotal Mano de Obra: $<span id="subtotal-mo">0</span></h3>
+            <h3>Subtotal Materiales: $<span id="subtotal-mat">0</span></h3>
+            <h1>TOTAL: $<span id="totalGeneral">0</span></h1>
+        </section>
+
+        <section class="acciones">
+            <button onclick="guardarPresupuesto()">💾 Guardar</button>
+            <button onclick="generarPDF()">📄 Generar PDF</button>
+            <button onclick="generarDatosPrueba()">🧪 Datos de Prueba</button>
+        </section>
+
+        <section class="card">
             <h2>📂 Historial de Presupuestos</h2>
             <table>
                 <thead>
@@ -235,9 +195,9 @@
     </div>
 
     <button class="dark-toggle" onclick="toggleDarkMode()">🌙</button>
-    <button class="dark-toggle" onclick="toggleDarkMode()" style="bottom: 20px; right: 20px;">🌙</button>
-    <button onclick="cerrarSesion()" style="position: fixed; bottom: 20px; left: 20px; background: #6c757d; color: white; border: none; padding: 10px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; z-index: 999;">🚪 Salir</button>
+    <button onclick="cerrarSesion()" style="position: fixed; bottom: 20px; left: 20px; background: #6c757d; color: white; border: none; padding: 12px 18px; border-radius: 20px; cursor: pointer; font-weight: bold; z-index: 999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🚪 Salir</button>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="script.js"></script>
     <script src="pdf.js"></script>
 

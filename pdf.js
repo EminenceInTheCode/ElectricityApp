@@ -38,7 +38,7 @@ async function generarPDF(){
     doc.text(`Direccion: ${direccion}`, 14, 86);
     doc.text(`Localidad: ${localidad}`, 14, 93);
 
-    // TABLA
+    // TABLAd
     let filas = [];
     document.querySelectorAll("#trabajos tr").forEach(fila => {
         const trabajo = fila.querySelector("select").value;

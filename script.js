@@ -6,44 +6,18 @@ const SUPABASE_ANON_KEY = "sb_publishable_pGQiIj7rdMCu0LPbh30CgA_p7stNbsW";
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Variable global para mantener los presupuestos cargados en memoria
 let presupuestosGlobales = [];
-
-// ==========================================
-// 1. CONSTANTES Y CONFIGURACIÓN INICIAL
-// ==========================================
-const precios = {
-    "Visita / Presupuesto": 52201,
-    "Hora de trabajo": 52201,
-    "Punto simple": 18611,
-    "Toma doble": 23573,
-    "Punto combinación": 20032,
-    "Artefacto aplique simple": 28561,
-    "Spot LED": 28561,
-    "Ventilador de techo": 104220,
-    "Ventilador con luminaria": 130315,
-    "PAT (Jabalina)": 156271,
-    "Tablero principal": 307873,
-    "Cambio de toma": 22000,
-    "Cambio de punto": 25000,
-    "Cambio de térmica": 30000,
-    "Instalación de aplique": 28561
-};
 
 // ==========================================
 // CONTROL DE ACCESO Y SESIÓN (AUTH)
 // ==========================================
-
 document.addEventListener("DOMContentLoaded", async () => {
-    // Verificamos si ya hay una sesión activa del usuario
     const { data: { session } } = await _supabase.auth.getSession();
 
     if (session) {
-        // Si está logueado, ocultamos la pantalla de login y arrancamos la app
         document.getElementById("login-container").style.display = "none";
-        inicializarApp();
+        await inicializarApp();
     } else {
-        // Si no está logueado, nos Aaseguramos que la pantalla de login esté visible
         document.getElementById("login-container").style.display = "flex";
     }
 });
@@ -67,7 +41,6 @@ async function iniciarSesion() {
         errorTxt.innerText = "Usuario o contraseña incorrectos.";
         errorTxt.style.display = "block";
     } else {
-        // Login exitoso: ocultamos el bloqueo y cargamos los datos
         document.getElementById("login-container").style.display = "none";
         await inicializarApp();
     }
@@ -75,11 +48,9 @@ async function iniciarSesion() {
 
 async function cerrarSesion() {
     await _supabase.auth.signOut();
-    // Recargamos la página para que se vuelva a bloquear todo instantáneamente
     window.location.reload();
 }
 
-// Pasamos la lógica de arranque acá adentro para que solo corra al estar autorizado
 async function inicializarApp() {
     await generarNumeroPresupuesto();
 
@@ -95,8 +66,26 @@ async function inicializarApp() {
 }
 
 // ==========================================
-// 2. LÓGICA DE CLIENTES (CRM)
+// CONSTANTES Y CONFIGURACIÓN INICIAL
 // ==========================================
+const precios = {
+    "Visita / Presupuesto": 52201,
+    "Hora de trabajo": 52201,
+    "Punto simple": 18611,
+    "Toma doble": 23573,
+    "Punto combinación": 20032,
+    "Artefacto aplique simple": 28561,
+    "Spot LED": 28561,
+    "Ventilador de techo": 104220,
+    "Ventilador con luminaria": 130315,
+    "PAT (Jabalina)": 156271,
+    "Tablero principal": 307873,
+    "Cambio de toma": 22000,
+    "Cambio de punto": 25000,
+    "Cambio de térmica": 30000,
+    "Instalación de aplique": 28561
+};
+
 function cargarListaClientes() {
     const select = document.getElementById("clienteSelect");
     select.innerHTML = '<option value="">-- Cargar como cliente nuevo --</option>';
@@ -104,7 +93,6 @@ function cargarListaClientes() {
     const clientesUnicos = [];
     const telefonosVistos = new Set();
 
-    // Filtra los últimos clientes usando la variable global de Supabase
     [...presupuestosGlobales].reverse().forEach(p => {
         if (p.telefono && !telefonosVistos.has(p.telefono)) {
             telefonosVistos.add(p.telefono);
@@ -135,11 +123,7 @@ function cargarDatosCliente() {
     }
 }
 
-// ==========================================
-// 3. LÓGICA DE PRESUPUESTOS Y CÁLCULOS
-// ==========================================
 async function generarNumeroPresupuesto() {
-    // Consultamos el último presupuesto creado en la nube para seguir la correlatividad
     const { data, error } = await _supabase
         .from('presupuestos')
         .select('numero')
@@ -148,7 +132,7 @@ async function generarNumeroPresupuesto() {
 
     let ultimoNum = 0;
     if (data && data.length > 0) {
-        const ultimoTexto = data[0].numero; // Ejemplo: "PRES-0004"
+        const ultimoTexto = data[0].numero;
         ultimoNum = Number(ultimoTexto.replace("PRES-", "")) || 0;
     }
     
@@ -156,7 +140,6 @@ async function generarNumeroPresupuesto() {
     document.getElementById("numeroPresupuesto").value = numero;
 }
 
-// MANO DE OBRA
 function agregarTrabajo() {
     const tbody = document.getElementById("trabajos");
     const fila = document.createElement("tr");
@@ -187,7 +170,6 @@ function actualizar(elemento) {
     calcularTotal();
 }
 
-// MATERIALES
 function agregarMaterial() {
     const tbody = document.getElementById("materiales");
     const fila = document.createElement("tr");
@@ -261,7 +243,7 @@ function obtenerFilas(selector, isMaterial = false) {
         } else {
             array.push({
                 trabajo: fila.querySelector("select").value,
-                cantidad: fila.querySelector("input").value,
+                whitespace: fila.querySelector("input").value,
                 precio: fila.querySelector(".precio").innerText,
                 total: fila.querySelector(".total").innerText
             });
@@ -271,7 +253,7 @@ function obtenerFilas(selector, isMaterial = false) {
 }
 
 // ==========================================
-// 4. GESTIÓN DE BASE DE DATOS EN LA NUBE (SUPABASE)
+// GESTIÓN DE BASE DE DATOS (SUPABASE)
 // ==========================================
 async function guardarPresupuesto() {
     const presupuesto = {
@@ -298,7 +280,7 @@ async function guardarPresupuesto() {
     if (error) {
         alert("Error al guardar en la nube: " + error.message);
     } else {
-        alert("Presupuesto guardado exitosamente en la nube!");
+        alert("Presupuesto guardado exitosamente!");
         await generarNumeroPresupuesto();
         await cargarHistorial();
     }
@@ -306,16 +288,16 @@ async function guardarPresupuesto() {
 
 async function cargarHistorial() {
     const tbody = document.getElementById("historial");
+    if(!tbody) return;
     tbody.innerHTML = "";
 
-    // Traer registros directamente desde Supabase
     const { data: presupuestos, error } = await _supabase
         .from('presupuestos')
         .select('*')
         .order('id', { ascending: true });
 
     if (error) {
-        console.error("Error cargando historial de la nube:", error);
+        console.error(error);
         return;
     }
 
@@ -323,22 +305,19 @@ async function cargarHistorial() {
 
     let pendiente = 0, cobradoMes = 0;
     const hoy = new Date().toISOString().split("T")[0];
-    const mesActual = hoy.slice(0, 7); // "YYYY-MM"
+    const mesActual = hoy.slice(0, 7);
 
     presupuestosGlobales.forEach((p, index) => {
         const monto = Number(p.total.replace(/\./g, "").replace(/,/g, "")) || 0;
         
-        // LÓGICA DE ALERTA DE VENCIDO
         let estadoMostrar = p.estado;
         if (p.estado === "Pendiente" && p.vencimiento && p.vencimiento < hoy) {
             estadoMostrar = "Vencido";
         }
 
-        // Sumas al dashboard (Los vencidos no suman a "A cobrar")
         if (estadoMostrar === "Pendiente") pendiente += monto;
         if (p.estado === "Cobrado" && p.fecha.startsWith(mesActual)) cobradoMes += monto;
 
-        // Renderizar fila en la tabla pasando el p.id de Supabase
         tbody.innerHTML = `
         <tr>
             <td>${p.numero}</td>
@@ -359,15 +338,12 @@ async function cargarHistorial() {
     document.getElementById("dash-cobrado").innerText = "$" + cobradoMes.toLocaleString("es-AR");
     document.getElementById("dash-cantidad").innerText = presupuestosGlobales.length;
 
-    cargarListaClientes(); // Actualiza el buscador de clientes con la data fresca
+    cargarListaClientes();
 }
 
 async function eliminarPresupuesto(id) {
-    if(confirm("¿Estás seguro de eliminar este presupuesto de la nube?")) {
+    if(confirm("¿Seguro de eliminar este presupuesto?")) {
         const { error } = await _supabase.from('presupuestos').delete().eq('id', id);
-        if (error) {
-            alert("Error al eliminar: " + error.message);
-        }
         await cargarHistorial();
     }
 }
@@ -378,25 +354,17 @@ async function cambiarEstado(index, estadoActual, id) {
     actual = (actual + 1) >= estados.length ? 0 : actual + 1;
     const nuevoEstado = estados[actual];
 
-    const { error } = await _supabase
-        .from('presupuestos')
-        .update({ estado: nuevoEstado })
-        .eq('id', id);
-
-    if (error) {
-        alert("Error al actualizar estado: " + error.message);
-    }
+    const { error } = await _supabase.from('presupuestos').update({ estado: nuevoEstado }).eq('id', id);
     await cargarHistorial();
 }
 
 function descargarPresupuesto(index) {
-    // Guarda temporalmente el elemento seleccionado para que pdf.js lo procese
     localStorage.setItem("presupuestoPDF", JSON.stringify(presupuestosGlobales[index]));
     generarPDFFromStorage(); 
 }
 
 // ==========================================
-// 5. FUNCIONES DE UTILIDAD
+// FUNCIONES DE UTILIDAD GENERAL
 // ==========================================
 function toggleDarkMode() {
     document.body.classList.toggle("dark");
