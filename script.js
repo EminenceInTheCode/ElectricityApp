@@ -1,4 +1,15 @@
 // ==========================================
+// CONFIGURACIÓN DE SUPABASE (CONEXIÓN EN LA NUBE)
+// ==========================================
+const SUPABASE_URL = "https://dxbicbhbkxvtupuezuct.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_pGQiIj7rdMCu0LPbh30CgA_p7stNbsW";
+
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Variable global para mantener los presupuestos cargados en memoria
+let presupuestosGlobales = [];
+
+// ==========================================
 // 1. CONSTANTES Y CONFIGURACIÓN INICIAL
 // ==========================================
 const precios = {
@@ -19,39 +30,82 @@ const precios = {
     "Instalación de aplique": 28561
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-    generarNumeroPresupuesto();
+// ==========================================
+// CONTROL DE ACCESO Y SESIÓN (AUTH)
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", async () => {
+    // Verificamos si ya hay una sesión activa del usuario
+    const { data: { session } } = await _supabase.auth.getSession();
+
+    if (session) {
+        // Si está logueado, ocultamos la pantalla de login y arrancamos la app
+        document.getElementById("login-container").style.display = "none";
+        inicializarApp();
+    } else {
+        // Si no está logueado, nos aseguramos que la pantalla de login esté visible
+        document.getElementById("login-container").style.display = "flex";
+    }
+});
+
+async function iniciarSesion() {
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+    const errorTxt = document.getElementById("login-error");
+
+    errorTxt.style.display = "none";
+
+    if (!email || !password) {
+        errorTxt.innerText = "Por favor, completa todos los campos.";
+        errorTxt.style.display = "block";
+        return;
+    }
+
+    const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+        errorTxt.innerText = "Usuario o contraseña incorrectos.";
+        errorTxt.style.display = "block";
+    } else {
+        // Login exitoso: ocultamos el bloqueo y cargamos los datos
+        document.getElementById("login-container").style.display = "none";
+        await inicializarApp();
+    }
+}
+
+async function cerrarSesion() {
+    await _supabase.auth.signOut();
+    // Recargamos la página para que se vuelva a bloquear todo instantáneamente
+    window.location.reload();
+}
+
+// Pasamos la lógica de arranque acá adentro para que solo corra al estar autorizado
+async function inicializarApp() {
+    await generarNumeroPresupuesto();
 
     const hoy = new Date();
-    const hoyStr = hoy.toISOString().split("T")[0];
-    document.getElementById("fecha").value = hoyStr;
-    
-    // Ponemos las fechas de hoy por defecto en el anotador de tareas
-    if(document.getElementById("agendaFechaHable")) document.getElementById("agendaFechaHable").value = hoyStr;
-    if(document.getElementById("agendaFechaIr")) document.getElementById("agendaFechaIr").value = hoyStr;
+    document.getElementById("fecha").value = hoy.toISOString().split("T")[0];
 
     const vencimiento = new Date();
     vencimiento.setDate(vencimiento.getDate() + 14);
     document.getElementById("vencimiento").value = vencimiento.toISOString().split("T")[0];
 
-    cargarListaClientes();
     agregarTrabajo();
-    cargarHistorial();
-    cargarAgenda(); // Carga los trabajos guardados en la agenda
-});
+    await cargarHistorial();
+}
 
 // ==========================================
 // 2. LÓGICA DE CLIENTES (CRM)
 // ==========================================
 function cargarListaClientes() {
-    const presupuestos = JSON.parse(localStorage.getItem("presupuestos")) || [];
     const select = document.getElementById("clienteSelect");
     select.innerHTML = '<option value="">-- Cargar como cliente nuevo --</option>';
 
     const clientesUnicos = [];
     const telefonosVistos = new Set();
 
-    [...presupuestos].reverse().forEach(p => {
+    // Filtra los últimos clientes usando la variable global de Supabase
+    [...presupuestosGlobales].reverse().forEach(p => {
         if (p.telefono && !telefonosVistos.has(p.telefono)) {
             telefonosVistos.add(p.telefono);
             clientesUnicos.push(p);
@@ -70,12 +124,12 @@ function cargarDatosCliente() {
     const select = document.getElementById("clienteSelect");
     if (select.value) {
         const c = JSON.parse(select.value);
-        document.getElementById("nombre").value = c.nombre;
-        document.getElementById("apellido").value = c.apellido;
-        document.getElementById("telefono").value = c.telefono;
-        document.getElementById("email").value = c.email;
-        document.getElementById("direccion").value = c.direccion;
-        document.getElementById("localidad").value = c.localidad;
+        document.getElementById("nombre").value = c.nombre || "";
+        document.getElementById("apellido").value = c.apellido || "";
+        document.getElementById("telefono").value = c.telefono || "";
+        document.getElementById("email").value = c.email || "";
+        document.getElementById("direccion").value = c.direccion || "";
+        document.getElementById("localidad").value = c.localidad || "";
     } else {
         document.querySelectorAll("#nombre, #apellido, #telefono, #email, #direccion, #localidad").forEach(input => input.value = "");
     }
@@ -84,12 +138,25 @@ function cargarDatosCliente() {
 // ==========================================
 // 3. LÓGICA DE PRESUPUESTOS Y CÁLCULOS
 // ==========================================
-function generarNumeroPresupuesto() {
-    const ultimo = Number(localStorage.getItem("ultimoPresupuesto")) || 0;
-    const numero = "PRES-" + String(ultimo + 1).padStart(4, "0");
+async function generarNumeroPresupuesto() {
+    // Consultamos el último presupuesto creado en la nube para seguir la correlatividad
+    const { data, error } = await _supabase
+        .from('presupuestos')
+        .select('numero')
+        .order('id', { ascending: false })
+        .limit(1);
+
+    let ultimoNum = 0;
+    if (data && data.length > 0) {
+        const ultimoTexto = data[0].numero; // Ejemplo: "PRES-0004"
+        ultimoNum = Number(ultimoTexto.replace("PRES-", "")) || 0;
+    }
+    
+    const numero = "PRES-" + String(ultimoNum + 1).padStart(4, "0");
     document.getElementById("numeroPresupuesto").value = numero;
 }
 
+// MANO DE OBRA
 function agregarTrabajo() {
     const tbody = document.getElementById("trabajos");
     const fila = document.createElement("tr");
@@ -120,6 +187,7 @@ function actualizar(elemento) {
     calcularTotal();
 }
 
+// MATERIALES
 function agregarMaterial() {
     const tbody = document.getElementById("materiales");
     const fila = document.createElement("tr");
@@ -183,8 +251,9 @@ function obtenerFilas(selector, isMaterial = false) {
     let array = [];
     document.querySelectorAll(`${selector} tr`).forEach(fila => {
         if(isMaterial) {
+            const inputTxt = fila.querySelector("input[type='text']");
             array.push({
-                trabajo: fila.querySelector("input[type='text']").value || "Material",
+                trabajo: inputTxt ? inputTxt.value : "Material",
                 cantidad: fila.querySelector(".cant-mat").value,
                 precio: fila.querySelector(".precio-mat").value,
                 total: fila.querySelector(".total-mat").innerText
@@ -202,9 +271,9 @@ function obtenerFilas(selector, isMaterial = false) {
 }
 
 // ==========================================
-// 4. GESTIÓN DE LOCALSTORAGE E HISTORIAL
+// 4. GESTIÓN DE BASE DE DATOS EN LA NUBE (SUPABASE)
 // ==========================================
-function guardarPresupuesto() {
+async function guardarPresupuesto() {
     const presupuesto = {
         numero: document.getElementById("numeroPresupuesto").value,
         fecha: document.getElementById("fecha").value,
@@ -224,43 +293,52 @@ function guardarPresupuesto() {
         materiales: obtenerFilas("#materiales", true)
     };
 
-    let presupuestos = JSON.parse(localStorage.getItem("presupuestos")) || [];
-    presupuestos.push(presupuesto);
-    localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
+    const { error } = await _supabase.from('presupuestos').insert([presupuesto]);
 
-    let ultimo = Number(localStorage.getItem("ultimoPresupuesto")) || 0;
-    localStorage.setItem("ultimoPresupuesto", ultimo + 1);
-
-    generarNumeroPresupuesto();
-    cargarListaClientes();
-    cargarHistorial();
-    
-    alert("Presupuesto guardado exitosamente");
+    if (error) {
+        alert("Error al guardar en la nube: " + error.message);
+    } else {
+        alert("Presupuesto guardado exitosamente en la nube!");
+        await generarNumeroPresupuesto();
+        await cargarHistorial();
+    }
 }
 
-function cargarHistorial() {
+async function cargarHistorial() {
     const tbody = document.getElementById("historial");
     tbody.innerHTML = "";
-    const presupuestos = JSON.parse(localStorage.getItem("presupuestos")) || [];
+
+    // Traer registros directamente desde Supabase
+    const { data: presupuestos, error } = await _supabase
+        .from('presupuestos')
+        .select('*')
+        .order('id', { ascending: true });
+
+    if (error) {
+        console.error("Error cargando historial de la nube:", error);
+        return;
+    }
+
+    presupuestosGlobales = presupuestos || [];
 
     let pendiente = 0, cobradoMes = 0;
-    const hoy = new Date().toISOString().split("T")[0]; // Fecha de hoy en formato AAAA-MM-DD
+    const hoy = new Date().toISOString().split("T")[0];
     const mesActual = hoy.slice(0, 7); // "YYYY-MM"
 
-    presupuestos.forEach((p, index) => {
+    presupuestosGlobales.forEach((p, index) => {
         const monto = Number(p.total.replace(/\./g, "").replace(/,/g, "")) || 0;
         
         // LÓGICA DE ALERTA DE VENCIDO
         let estadoMostrar = p.estado;
-        // Si está pendiente pero la fecha de vencimiento ya pasó (es menor a hoy)
         if (p.estado === "Pendiente" && p.vencimiento && p.vencimiento < hoy) {
             estadoMostrar = "Vencido";
         }
 
-        // Sumamos al dashboard solo si realmente sigue Pendiente (los vencidos no se suman a "A cobrar")
+        // Sumas al dashboard (Los vencidos no suman a "A cobrar")
         if (estadoMostrar === "Pendiente") pendiente += monto;
         if (p.estado === "Cobrado" && p.fecha.startsWith(mesActual)) cobradoMes += monto;
 
+        // Renderizar fila en la tabla pasando el p.id de Supabase
         tbody.innerHTML = `
         <tr>
             <td>${p.numero}</td>
@@ -270,8 +348,8 @@ function cargarHistorial() {
             <td class="estado-${estadoMostrar}">${estadoMostrar}</td>
             <td>
                 <button onclick="descargarPresupuesto(${index})">📄</button>
-                <button onclick="cambiarEstado(${index})">🔄</button>
-                <button onclick="eliminarPresupuesto(${index})">🗑️</button>
+                <button onclick="cambiarEstado(${index}, '${p.estado}', ${p.id})">🔄</button>
+                <button onclick="eliminarPresupuesto(${p.id})">🗑️</button>
             </td>
         </tr>
         ` + tbody.innerHTML;
@@ -279,134 +357,46 @@ function cargarHistorial() {
 
     document.getElementById("dash-pendiente").innerText = "$" + pendiente.toLocaleString("es-AR");
     document.getElementById("dash-cobrado").innerText = "$" + cobradoMes.toLocaleString("es-AR");
-    document.getElementById("dash-cantidad").innerText = presupuestos.length;
+    document.getElementById("dash-cantidad").innerText = presupuestosGlobales.length;
+
+    cargarListaClientes(); // Actualiza el buscador de clientes con la data fresca
 }
 
-function eliminarPresupuesto(index) {
-    if(confirm("¿Estás seguro de eliminar este presupuesto?")) {
-        let presupuestos = JSON.parse(localStorage.getItem("presupuestos")) || [];
-        presupuestos.splice(index, 1);
-        localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
-        cargarHistorial();
+async function eliminarPresupuesto(id) {
+    if(confirm("¿Estás seguro de eliminar este presupuesto de la nube?")) {
+        const { error } = await _supabase.from('presupuestos').delete().eq('id', id);
+        if (error) {
+            alert("Error al eliminar: " + error.message);
+        }
+        await cargarHistorial();
     }
 }
 
-function cambiarEstado(index) {
-    let presupuestos = JSON.parse(localStorage.getItem("presupuestos")) || [];
+async function cambiarEstado(index, estadoActual, id) {
     const estados = ["Pendiente", "Aceptado", "Cobrado", "Rechazado"];
-    
-    let actual = estados.indexOf(presupuestos[index].estado);
+    let actual = estados.indexOf(estadoActual);
     actual = (actual + 1) >= estados.length ? 0 : actual + 1;
+    const nuevoEstado = estados[actual];
 
-    presupuestos[index].estado = estados[actual];
-    localStorage.setItem("presupuestos", JSON.stringify(presupuestos));
-    cargarHistorial();
+    const { error } = await _supabase
+        .from('presupuestos')
+        .update({ estado: nuevoEstado })
+        .eq('id', id);
+
+    if (error) {
+        alert("Error al actualizar estado: " + error.message);
+    }
+    await cargarHistorial();
 }
 
 function descargarPresupuesto(index) {
-    const presupuestos = JSON.parse(localStorage.getItem("presupuestos")) || [];
-    localStorage.setItem("presupuestoPDF", JSON.stringify(presupuestos[index]));
+    // Guarda temporalmente el elemento seleccionado para que pdf.js lo procese
+    localStorage.setItem("presupuestoPDF", JSON.stringify(presupuestosGlobales[index]));
     generarPDFFromStorage(); 
 }
 
 // ==========================================
-// 5. NUEVA LÓGICA: GESTIÓN DE LA AGENDA DE TRABAJOS
-// ==========================================
-function agregarTareaAgenda() {
-    const descripcion = document.getElementById("agendaTarea").value.trim();
-    const fechaHable = document.getElementById("agendaFechaHable").value;
-    const fechaIr = document.getElementById("agendaFechaIr").value;
-    const estado = document.getElementById("agendaEstado").value;
-
-    if (!descripcion) {
-        alert("Por favor, escribe qué trabajo tienes que hacer.");
-        return;
-    }
-
-    const nuevaTarea = {
-        id: Date.now(),
-        descripcion,
-        fechaHable,
-        fechaIr,
-        estado
-    };
-
-    let tareas = JSON.parse(localStorage.getItem("agenda_tareas")) || [];
-    tareas.push(nuevaTarea);
-    localStorage.setItem("agenda_tareas", JSON.stringify(tareas));
-
-    document.getElementById("agendaTarea").value = "";
-    cargarAgenda();
-}
-
-function cargarAgenda() {
-    const listaContenedor = document.getElementById("agendaLista");
-    if(!listaContenedor) return;
-    listaContenedor.innerHTML = "";
-    
-    let tareas = JSON.parse(localStorage.getItem("agenda_tareas")) || [];
-
-    if (tareas.length === 0) {
-        listaContenedor.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:13px; margin-top:15px;">No tienes trabajos anotados.</p>';
-        return;
-    }
-
-    // Ordenar: Pendientes primero, Aceptados al medio, Terminados al final
-    tareas.sort((a, b) => {
-        const orden = { "Pendiente": 1, "Aceptado": 2, "Terminado": 3 };
-        return orden[a.estado] - orden[b.estado];
-    });
-
-    tareas.forEach(tarea => {
-        const item = document.createElement("div");
-        item.className = `tarea-item ${tarea.estado}`;
-        
-        item.innerHTML = `
-            <h4>${tarea.descripcion}</h4>
-            <div class="tarea-detalles">
-                🗣️ <strong>Hablamos:</strong> ${tarea.fechaHable || 'Sin fecha'}<br>
-                🚗 <strong>Tengo que ir:</strong> ${tarea.fechaIr || 'Sin fecha'}
-            </div>
-            <div style="display:flex; justify-content:between; align-items:center; gap:10px; margin-top:8px;">
-                <span class="tarea-badge ${tarea.estado}">${tarea.estado}</span>
-                <div style="margin-left:auto; display:flex; gap:5px;">
-                    <button class="btn-tarea-status" onclick="ciclarEstadoTarea(${tarea.id})">🔄</button>
-                    <button class="btn-tarea-delete" onclick="eliminarTareaAgenda(${tarea.id})">🗑️</button>
-                </div>
-            </div>
-        `;
-        listaContenedor.appendChild(item);
-    });
-}
-
-function ciclarEstadoTarea(id) {
-    let tareas = JSON.parse(localStorage.getItem("agenda_tareas")) || [];
-    const estados = ["Pendiente", "Aceptado", "Terminado"];
-    
-    tareas = tareas.map(t => {
-        if (t.id === id) {
-            let indexActual = estados.indexOf(t.estado);
-            indexActual = (indexActual + 1) % estados.length;
-            t.estado = estados[indexActual];
-        }
-        return t;
-    });
-
-    localStorage.setItem("agenda_tareas", JSON.stringify(tareas));
-    cargarAgenda();
-}
-
-function eliminarTareaAgenda(id) {
-    if (confirm("¿Quieres quitar este trabajo de la agenda?")) {
-        let tareas = JSON.parse(localStorage.getItem("agenda_tareas")) || [];
-        tareas = tareas.filter(t => t.id !== id);
-        localStorage.setItem("agenda_tareas", JSON.stringify(tareas));
-        cargarAgenda();
-    }
-}
-
-// ==========================================
-// 6. FUNCIONES DE UTILIDAD GENERAL
+// 5. FUNCIONES DE UTILIDAD
 // ==========================================
 function toggleDarkMode() {
     document.body.classList.toggle("dark");
