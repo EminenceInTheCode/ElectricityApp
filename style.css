@@ -658,3 +658,10 @@ body.dark .tarea-badge.Aceptado { background: #002b5c; color: #79b8ff; }
 body.dark .tarea-badge.Terminado { background: #0c3316; color: #81c784; }
 body.dark .btn-tarea-status { background: #3a3a3a; color: white; }
 body.dark .btn-tarea-delete { background: #4c1d21; color: #ff858d; }
+
+.estado-Vencido {
+    color: #dc3545; /* Rojo de alerta */
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 12px;
+}

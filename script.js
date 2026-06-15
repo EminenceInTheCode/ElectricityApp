@@ -244,12 +244,21 @@ function cargarHistorial() {
     const presupuestos = JSON.parse(localStorage.getItem("presupuestos")) || [];
 
     let pendiente = 0, cobradoMes = 0;
-    const mesActual = new Date().toISOString().slice(0, 7);
+    const hoy = new Date().toISOString().split("T")[0]; // Fecha de hoy en formato AAAA-MM-DD
+    const mesActual = hoy.slice(0, 7); // "YYYY-MM"
 
     presupuestos.forEach((p, index) => {
         const monto = Number(p.total.replace(/\./g, "").replace(/,/g, "")) || 0;
         
-        if (p.estado === "Pendiente") pendiente += monto;
+        // LÓGICA DE ALERTA DE VENCIDO
+        let estadoMostrar = p.estado;
+        // Si está pendiente pero la fecha de vencimiento ya pasó (es menor a hoy)
+        if (p.estado === "Pendiente" && p.vencimiento && p.vencimiento < hoy) {
+            estadoMostrar = "Vencido";
+        }
+
+        // Sumamos al dashboard solo si realmente sigue Pendiente (los vencidos no se suman a "A cobrar")
+        if (estadoMostrar === "Pendiente") pendiente += monto;
         if (p.estado === "Cobrado" && p.fecha.startsWith(mesActual)) cobradoMes += monto;
 
         tbody.innerHTML = `
@@ -258,7 +267,7 @@ function cargarHistorial() {
             <td>${p.nombre} ${p.apellido}</td>
             <td>${p.fecha}</td>
             <td>$${p.total}</td>
-            <td class="estado-${p.estado}">${p.estado}</td>
+            <td class="estado-${estadoMostrar}">${estadoMostrar}</td>
             <td>
                 <button onclick="descargarPresupuesto(${index})">📄</button>
                 <button onclick="cambiarEstado(${index})">🔄</button>
