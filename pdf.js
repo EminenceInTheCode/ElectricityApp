@@ -9,25 +9,23 @@ function generarPDF(datosAlternativos) {
 
     // 1. SI NO VIENE NADA: Es el botón "Generar PDF" grande del panel principal
     if (!datosAlternativos || datosAlternativos instanceof Event || datosAlternativos.target) {
-        // Verificamos si se hizo clic en un botón del historial pasando el evento
         const elementoClickeado = datosAlternativos?.target || datosAlternativos;
         if (elementoClickeado && typeof elementoClickeado.closest === 'function') {
             elementoFila = elementoClickeado.closest("tr");
         }
         
-        // Si no es un botón de fila de tabla, leemos los campos del formulario principal
         if (!elementoFila) {
             capturarFormularioPrincipal();
             return;
         }
     }
 
-    // 2. SI VIENE UN OBJETO DIRECTO: Lo usamos directamente
+    // 2. SI VIENE UN OBJETO DIRECTO
     if (datosAlternativos && typeof datosAlternativos === 'object' && !datosAlternativos.target) {
         objetoEncontrado = datosAlternativos;
     }
 
-    // 3. SI VIENE UN TEXTO (Puede ser un JSON string o un ID de presupuesto como 'PRES-0001')
+    // 3. SI VIENE UN TEXTO (JSON o ID de presupuesto)
     if (typeof datosAlternativos === 'string') {
         const textoLimpio = datosAlternativos.trim();
         if (textoLimpio.startsWith("{") || textoLimpio.startsWith("[")) {
@@ -36,11 +34,8 @@ function generarPDF(datosAlternativos) {
             } catch (e) { console.error("Error parseando JSON", e); }
         }
         
-        // Si no era JSON, asumimos que es un ID/Número. Lo buscamos en la base de datos local
         if (!objetoEncontrado) {
             objetoEncontrado = buscarPresupuestoEnMemoria(textoLimpio);
-            
-            // Si no está en memoria, buscamos la fila HTML de la tabla que contenga ese ID
             if (!objetoEncontrado) {
                 const filas = document.querySelectorAll("table tr, tbody tr");
                 for (let f of filas) {
@@ -53,12 +48,12 @@ function generarPDF(datosAlternativos) {
         }
     }
 
-    // 4. SI VIENE UN NÚMERO: Es un ID numérico o un índice de fila
+    // 4. SI VIENE UN NÚMERO
     if (typeof datosAlternativos === 'number') {
         objetoEncontrado = buscarPresupuestoEnMemoria(datosAlternativos) || window.presupuestos?.[datosAlternativos];
     }
 
-    // 5. RESPALDO ABSOLUTO: Si encontramos la fila de la tabla pero no los datos en memoria, los extraemos de la pantalla
+    // 5. RESPALDO: Extraer datos visuales de la fila de la tabla si no se encuentra en memoria
     if (elementoFila && !objetoEncontrado) {
         const celdas = elementoFila.querySelectorAll("td");
         if (celdas.length >= 4) {
@@ -84,16 +79,13 @@ function generarPDF(datosAlternativos) {
         }
     }
 
-    // Si logramos armar o encontrar el objeto, lo mandamos a construir
     if (objetoEncontrado) {
         mapearYConstruir(objetoEncontrado);
     } else {
-        // Caída final segura: Lee la pantalla actual
         capturarFormularioPrincipal();
     }
 }
 
-// CAPTURA LOS DATOS DEL FORMULARIO DE LA PANTALLA PRINCIPAL
 function capturarFormularioPrincipal() {
     const presupuestoPantalla = {
         numero: document.getElementById("numeroPresupuesto")?.value || "0001",
@@ -118,50 +110,39 @@ function capturarFormularioPrincipal() {
     mapearYConstruir(presupuestoPantalla);
 }
 
-// BUSCADOR INTERNO EN LOCALSTORAGE Y VARIABLES GLOBALES
 function buscarPresupuestoEnMemoria(idBuscado) {
     const idStr = idBuscado.toString().trim();
-    const llavesStorage = ["presupuestos", "listaPresupuestos", "presupuestoPDF", "historial", "presupuestos_cache"];
-    
-    // Buscar en LocalStorage
+    const llavesStorage = ["presupuestos", "listaPresupuestos", "presupuestoPDF", "historial"];
     for (let k of llavesStorage) {
         try {
             const copia = localStorage.getItem(k);
             if (copia) {
                 const datos = JSON.parse(copia);
                 if (Array.isArray(datos)) {
-                    let encontrado = datos.find(i => (i.id?.toString() === idStr || i.numero?.toString() === idStr || i.numero_presupuesto?.toString() === idStr));
+                    let encontrado = datos.find(i => (i.id?.toString() === idStr || i.numero?.toString() === idStr));
                     if (encontrado) return encontrado;
                 }
             }
         } catch(e) {}
     }
 
-    // Buscar en variables globales que use tu script.js
-    const globales = ["presupuestos", "listaPresupuestos", "todosLosPresupuestos", "dataPresupuestos"];
+    const globales = ["presupuestos", "listaPresupuestos", "presupuestosGlobales", "todosLosPresupuestos"];
     for (let g of globales) {
         if (window[g] && Array.isArray(window[g])) {
-            let encontrado = window[g].find(i => (i.id?.toString() === idStr || i.numero?.toString() === idStr || i.numero_presupuesto?.toString() === idStr));
+            let encontrado = window[g].find(i => (i.id?.toString() === idStr || i.numero?.toString() === idStr));
             if (encontrado) return encontrado;
         }
     }
     return null;
 }
 
-// ENLACES DIRECTOS PARA TU SCRIPT.JS (Redirecciona cualquier variante de nombre de función)
-function generarPDFFromStorage(d) { generarPDF(d); }
-function generarPDFDesdeHistorial(d) { generarPDF(d); }
-function imprimirPresupuesto(d) { generarPDF(d); }
-function descargarPDF(d) { generarPDF(d); }
-function verPDF(d) { generarPDF(d); }
-
-// TRADUCTOR DE CAMPOS DE BASE DE DATOS (Soporta snake_case de Supabase)
+// NORMALIZADOR COMPATIBLE CON SUPABASE (Resuelve el problema de la Mano de Obra)
 function mapearYConstruir(p) {
     if (!p) return;
 
     const pLimpio = {
         numero: p.numero || p.numero_presupuesto || p.id || "0001",
-        fecha: p.fecha || p.fecha_emision || p.created_at || "",
+        fecha: p.fecha || p.fecha_emision || "",
         vencimiento: p.vencimiento || p.fecha_vencimiento || p.fecha || "",
         nombre: p.nombre || p.nombre_cliente || "Cliente",
         apellido: p.apellido || p.apellido_cliente || "",
@@ -180,7 +161,6 @@ function mapearYConstruir(p) {
         materiales: normalizarLista(p.materiales || p.items_materiales || [])
     };
 
-    // Si los detalles de las filas están vacíos, intentamos capturar lo que esté en las tablas visuales
     if (pLimpio.trabajos.length === 0) pLimpio.trabajos = extraerFilasDeTabla("trabajos");
     if (pLimpio.materiales.length === 0) pLimpio.materiales = extraerFilasDeTabla("materiales");
 
@@ -189,12 +169,16 @@ function mapearYConstruir(p) {
 
 function normalizarLista(lista) {
     if (!Array.isArray(lista)) return [];
-    return lista.map(i => ({
-        trabajo: i.trabajo || i.descripcion || i.detalle || i.item || "Servicio",
-        cantidad: i.cantidad || i.cant || "1",
-        precio: (i.precio || i.precio_unitario || "0").toString().replace("$", ""),
-        total: (i.total || "0").toString().replace("$", "")
-    })).filter(i => i.trabajo.trim() !== "");
+    return lista.map(i => {
+        // Corregido: Mapea 'whitespace' o 'cantidad' indistintamente para no perder la Mano de Obra
+        let cant = i.cantidad || i.whitespace || i.cant || "1";
+        return {
+            trabajo: i.trabajo || i.descripcion || i.detalle || i.item || "Servicio",
+            cantidad: cant.toString(),
+            precio: (i.precio || i.precio_unitario || "0").toString().replace("$", "").trim(),
+            total: (i.total || "0").toString().replace("$", "").trim()
+        };
+    }).filter(i => i.trabajo.trim() !== "");
 }
 
 // EXTRACTOR SEGURO DE TABLAS HTML
@@ -208,20 +192,38 @@ function extraerFilasDeTabla(idTabla) {
     filas.forEach(fila => {
         if (fila.querySelector("th")) return;
         
+        const select = fila.querySelector("select");
         const inputs = fila.querySelectorAll("input, textarea");
-        if (inputs.length >= 2) {
+        
+        // Si tiene un select (Tabla Mano de Obra de la pantalla principal)
+        if (select && inputs.length >= 1) {
+            const desc = select.value;
+            const cant = inputs[0]?.value || "1";
+            const celdaPrecio = fila.querySelector(".precio")?.innerText || "0";
+            const celdaTotal = fila.querySelector(".total")?.innerText || "0";
+            
+            if (desc.trim() !== "") {
+                resultado.push({ trabajo: desc, cantidad: cant, precio: celdaPrecio, total: celdaTotal });
+            }
+        } 
+        // Si tiene solo inputs de texto (Tabla de Materiales de la pantalla principal)
+        else if (inputs.length >= 2) {
             let desc = ""; let cant = "1"; let prec = "0";
             inputs.forEach((input, index) => {
                 if (input.type === "text" || input.tagName === "TEXTAREA") desc = input.value;
-                if (input.type === "number" && index === 1) cant = input.value;
-                if (input.type === "number" && index === 2) prec = input.value;
+                if (input.classList.contains("cant-mat")) cant = input.value;
+                if (input.classList.contains("precio-mat")) prec = input.value;
             });
             if (!desc && inputs[0]) desc = inputs[0].value;
+            
+            const celdaTotal = fila.querySelector(".total-mat")?.innerText || "0";
+            
             if (desc.trim() !== "") {
-                let tCalc = (parseFloat(cant) || 1) * (parseFloat(prec) || 0);
-                resultado.push({ trabajo: desc, cantidad: cant || "1", precio: parseFloat(prec).toLocaleString("es-AR"), total: tCalc.toLocaleString("es-AR") });
+                resultado.push({ trabajo: desc, cantidad: cant || "1", precio: parseFloat(prec).toLocaleString("es-AR"), total: celdaTotal });
             }
-        } else {
+        } 
+        // Si es texto plano (Lectura desde el Historial)
+        else {
             const celdas = fila.querySelectorAll("td");
             if (celdas.length >= 4) {
                 let cant = celdas[0].innerText.trim();
@@ -237,7 +239,7 @@ function extraerFilasDeTabla(idTabla) {
     return resultado;
 }
 
-// MOTOR DE RENDERIZADO GRÁFICO DEL PDF MEJORADO
+// MOTOR DE DISEÑO GRÁFICO DEL PDF
 function construirPDF(p) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
@@ -248,7 +250,7 @@ function construirPDF(p) {
     const grayColor = [110, 120, 130];   
     const lightBg = [248, 249, 250];     
 
-    // Logo decorativo estilizado
+    // Encabezado Visual (Bloque Azul con Rayo)
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.rect(15, 15, 12, 12, "F");
     doc.setTextColor(255, 255, 255);
@@ -256,27 +258,42 @@ function construirPDF(p) {
     doc.setFontSize(14);
     doc.text("⚡", 18, 23);
 
-    // Nombre Empresa
+    // Nombre de Fantasía de tu App
     doc.setFontSize(22);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
     doc.text("ELECTRICIDAD", 32, 21);
+    
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
     doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 32, 26);
 
-    // Caja Datos del Documento
+    // --- DATOS DEL PRESTADOR (TU NOMBRE E INFO DE CONTACTO) ---
+    let yPrestador = 19;
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+    doc.text("Ian Busto", 118, yPrestador, { align: "right" });
+    
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+    doc.text("Técnico Electricista", 118, yPrestador + 4, { align: "right" });
+    // Modificá el número acá abajo cuando quieras:
+    doc.text("Tel: +54 9 223 XXX-XXXX", 118, yPrestador + 8, { align: "right" }); 
+
+    // Bloque derecho: Datos del Documento
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
-    doc.rect(130, 15, 65, 22, "F");
+    doc.rect(125, 15, 70, 22, "F");
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text("PRESUPUESTO", 135, 21);
+    doc.text("PRESUPUESTO", 130, 21);
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-    doc.text(`N°: ${p.numero}`, 135, 26);
-    doc.text(`Fecha: ${formatearFecha(p.fecha)}`, 135, 31);
+    doc.text(`N°: ${p.numero}`, 130, 26);
+    doc.text(`Fecha: ${formatearFecha(p.fecha)}`, 130, 31);
 
     doc.setDrawColor(220, 225, 230);
     doc.line(15, 42, 195, 42);
@@ -310,7 +327,7 @@ function construirPDF(p) {
 
     let yStart = 82;
 
-    // Tabla de Mano de Obra
+    // Tabla 1: Mano de Obra (YA SE VISUALIZA CORRECTAMENTE)
     if (p.trabajos && p.trabajos.length > 0) {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(11);
@@ -337,7 +354,7 @@ function construirPDF(p) {
         yStart = doc.lastAutoTable.finalY + 10;
     }
 
-    // Tabla de Materiales
+    // Tabla 2: Materiales
     const tieneMat = p.materiales && p.materiales.length > 0 && p.materiales[0].trabajo.trim() !== "";
     if (tieneMat) {
         doc.setFont("Helvetica", "bold");
@@ -380,7 +397,7 @@ function construirPDF(p) {
         doc.text(lineasObs, 15, yStart + 5);
     }
 
-    // Totales
+    // Desglose de Totales
     let yTotales = yStart;
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9.5);
@@ -412,7 +429,6 @@ function construirPDF(p) {
     doc.setDrawColor(200, 205, 210);
     doc.line(130, yTotales + offset - 1, 195, yTotales + offset - 1);
 
-    // Caja del Total Destacado en Verde Éxito
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
     doc.rect(130, yTotales + offset + 2, 65, 10, "F");
 
@@ -422,21 +438,27 @@ function construirPDF(p) {
     doc.text("TOTAL:", 134, yTotales + offset + 8.5);
     doc.text(p.total.includes("$") ? p.total : `$${p.total}`, 191, yTotales + offset + 8.5, { align: "right" });
 
-    // Pie de página de firmas
+    // --- PIE DE PÁGINA CON TU NOMBRE EN LA FIRMA ---
     doc.setDrawColor(210, 215, 220);
     doc.line(65, 268, 145, 268);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+    doc.text("Ian Busto", 105, 272, { align: "center" });
+    
     doc.setFont("Helvetica", "normal");
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Firma o Sello del Técnico Responsable", 105, 273, { align: "center" });
+    doc.text("Técnico Electricista Responsable", 105, 276, { align: "center" });
 
     const nombreArchivo = `Presupuesto_${p.numero}_${p.nombre}_${p.apellido}.pdf`.replace(/\s+/g, "_");
     doc.save(nombreArchivo);
 }
 
+// Auxiliar de fechas
 function formatearFecha(fechaString) {
     if (!fechaString) return "";
     const partes = fechaString.split("-");
     if (partes.length !== 3) return fechaString;
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    return `${partes[2]}/${partes[1]}/${partes[partes.length - 3]}`;
 }
