@@ -147,7 +147,7 @@ function imprimirPresupuesto(d) { generarPDF(d); }
 function descargarPDF(d) { generarPDF(d); }
 function verPDF(d) { generarPDF(d); }
 
-// TRADUCTOR DE FORMATOS DE COLUMNAS (Soporta camelCase y snake_case de Supabase)
+// TRADUCTOR INTELIGENTE: Traduce automáticamente snake_case de base de datos a camelCase
 function mapearYConstruir(p) {
     if (!p) return;
 
@@ -162,11 +162,11 @@ function mapearYConstruir(p) {
         direccion: p.direccion || "",
         localidad: p.localidad || "",
         observaciones: p.observaciones || p.notas || "",
-        subtotalMO: p.subtotalMO || p.subtotal_mo || "0",
-        subtotalMat: p.subtotalMat || p.subtotal_mat || "0",
+        subtotalMO: p.subtotalMO || p.subtotal_mo || p.subtotalManoObra || "0",
+        subtotalMat: p.subtotalMat || p.subtotal_mat || p.subtotalMateriales || "0",
         total: p.total || p.total_general || "0",
-        trabajos: normalizarLista(p.trabajos || p.detalles || p.items_mano_obra || p.items || []),
-        materiales: normalizarLista(p.materiales || p.items_materiales || [])
+        trabajos: normalizarLista(p.trabajos || p.detalles || p.items_mano_obra || p.items || p.detalles_mano_obra || []),
+        materiales: normalizarLista(p.materiales || p.items_materiales || p.detalles_materiales || [])
     };
 
     if (pLimpio.trabajos.length === 0) pLimpio.trabajos = extraerFilasDeTabla("trabajos");
@@ -208,7 +208,7 @@ function extraerFilasDeTabla(idTabla) {
             const celdaPrecio = fila.querySelector(".precio")?.innerText || "0";
             const celdaTotal = fila.querySelector(".total")?.innerText || "0";
             if (desc.trim() !== "") {
-                resultado.push({ trabajo: desc, cantidad: cant, precio: celdaPrecio, total: celdaTotal });
+                resultado.push({ trabajo: desc, quantity: cant, precio: celdaPrecio, total: celdaTotal });
             }
         } 
         else if (inputs.length >= 2) {
@@ -240,7 +240,7 @@ function extraerFilasDeTabla(idTabla) {
     return resultado;
 }
 
-// MOTOR GRÁFICO DEL PDF MEJORADO
+// MOTOR GRÁFICO DEL PDF
 function construirPDF(p) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
@@ -268,7 +268,7 @@ function construirPDF(p) {
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
     doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 32, 26);
 
-    // --- DATOS CORPORATIVOS: IAN BUSTO ---
+    // --- DATOS CORPORATIVOS ---
     let yPrestador = 19;
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(10.5);
@@ -313,7 +313,7 @@ function construirPDF(p) {
     doc.text(`Email: ${p.email || "---"}`, 15, yClient + 16);
     doc.text(`Dirección: ${p.direccion || "---"}, ${p.localidad || "---"}`, 15, yClient + 21);
 
-    // Validez (MONEDA EN PESOS ARGENTINOS ELIMINADA)
+    // Validez
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -362,7 +362,7 @@ function construirPDF(p) {
 
         const bodyMateriales = p.materiales.map(m => [
             m.trabajo,
-            { content: m.cantidad.toString(), styles: { halign: "center" } },
+            { content: m.whitespace ? m.whitespace.toString() : m.cantidad.toString(), styles: { halign: "center" } },
             { content: m.precio.includes("$") ? m.precio : `$${m.precio}`, styles: { halign: "right" } },
             { content: m.total.includes("$") ? m.total : `$${m.total}`, styles: { halign: "right" } }
         ]);
@@ -395,7 +395,7 @@ function construirPDF(p) {
         doc.text(lineasObs, 15, yStart + 5);
     }
 
-    // Totales finales (DESGLOSE DE GANANCIAS, DESCUENTOS Y VIÁTICOS ELIMINADOS)
+    // Totales finales
     let yTotales = yStart;
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9.5);
