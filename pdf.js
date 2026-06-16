@@ -1,10 +1,9 @@
 // ==========================================
-// CONFIGURACIÓN DE GENERACIÓN DE PDF
+// CONFIGURACIÓN DE GENERACIÓN DE PDF PROFESIONAL
 // ==========================================
 
-// Función principal que se llama desde el botón "Generar PDF" de la app
+// Función principal llamada desde el botón "Generar PDF" del panel
 function generarPDF() {
-    // Capturamos los datos actuales de la pantalla
     const presupuesto = {
         numero: document.getElementById("numeroPresupuesto").value,
         fecha: document.getElementById("fecha").value,
@@ -26,17 +25,15 @@ function generarPDF() {
         materiales: obtenerFilas("#materiales", true)
     };
 
-    // Validamos que al menos tenga el nombre del cliente
-    if (!presupuesto.nombre) {
-        alert("Por favor, ingresá al menos el nombre del cliente para generar el PDF.");
+    if (!presupuesto.nombre && !presupuesto.apellido) {
+        alert("Por favor, cargá los datos del cliente para poder generar el PDF.");
         return;
     }
 
-    // Ejecutamos el armador de PDF pasándole los datos
     construirPDF(presupuesto);
 }
 
-// Función que se llama desde el historial al tocar el botón del PDF 📄
+// Función que se ejecuta al presionar el botón de la hoja (📄) en el Historial
 function generarPDFFromStorage() {
     const data = localStorage.getItem("presupuestoPDF");
     if (!data) return;
@@ -44,221 +41,239 @@ function generarPDFFromStorage() {
     construirPDF(presupuesto);
 }
 
-// LÓGICA DE MAQUETADO DEL PRESUPUESTO EN PDF
+// ARQUITECTURA Y DISEÑO DEL PDF
 function construirPDF(p) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
 
-    // --- Colores de marca (Azul Eléctrico Profesional) ---
-    const primaryColor = [3, 96, 235]; 
-    const darkColor = [51, 51, 51];
-    const grayColor = [102, 102, 102];
+    // --- PALETA DE COLORES (Basada en tu App) ---
+    const primaryColor = [3, 96, 235];   // #0360eb Azul Eléctrico
+    const successColor = [2, 196, 105];  // #02c469 Verde Total
+    const darkColor = [40, 44, 52];     // Gris Carbón para texto principal
+    const grayColor = [110, 120, 130];   // Gris Neutro para subtítulos
+    const lightBg = [248, 249, 250];     // Fondo suave de bloques
 
-    // --- ENCABEZADO PRINCIPAL ---
-    // Barra decorativa superior azul
+    // --- ENCABEZADO DE MARCA ESTILIZADO ---
+    // Bloque estético superior izquierdo
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(0, 0, 210, 8, "F");
-
-    // Icono / Logo Rayo Eléctrico
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(38);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text("⚡", 15, 26);
-
-    // Nombre de la Empresa / Rubro
-    doc.setFontSize(22);
-    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-    doc.text("ELECTRICIDAD", 32, 20);
+    doc.rect(15, 15, 12, 12, "F");
     
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Instalaciones Eléctricas - Mantenimiento - Obras", 32, 25);
-
-    // Bloque derecho: Datos del presupuesto
+    // Icono del rayo centrado en el bloque blanco
+    doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(14);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text(`PRESUPUESTO`, 140, 18);
-    
-    doc.setFontSize(11);
+    doc.text("⚡", 18, 23);
+
+    // Título de la empresa (Alineado con el bloque)
+    doc.setFontSize(22);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-    doc.text(`N°: ${p.numero}`, 140, 24);
+    doc.text("ELECTRICIDAD", 32, 21);
     
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(`Fecha emisión: ${formatearFecha(p.fecha)}`, 140, 29);
-    doc.text(`Vencimiento: ${formatearFecha(p.vencimiento)}`, 140, 34);
+    doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+    doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 32, 26);
 
-    // Línea divisoria
-    doc.setDrawColor(220, 226, 230);
-    doc.line(15, 40, 195, 40);
-
-    // --- SECCIÓN: DATOS DEL CLIENTE ---
+    // --- BLOQUE DERECHO: DETALLES DEL DOCUMENTO ---
+    doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+    doc.rect(130, 15, 65, 22, "F");
+    
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text("DATOS DEL CLIENTE", 15, 48);
-
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+    doc.text("PRESUPUESTO", 135, 21);
     
-    // Armamos texto formateado para el cliente
-    const infoClienteIzquierda = [
-        `Cliente: ${p.nombre} ${p.apellido}`,
-        `Teléfono: ${p.telefono || "No especificado"}`,
-        `Email: ${p.email || "No especificado"}`
-    ];
-    const infoClienteDerecha = [
-        `Dirección: ${p.direccion || "No especificada"}`,
-        `Localidad: ${p.localidad || "No especificada"}`
-    ];
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+    doc.text(`N°: ${p.numero}`, 135, 26);
+    doc.text(`Fecha: ${formatearFecha(p.fecha)}`, 135, 31);
 
-    doc.text(infoClienteIzquierda, 15, 55);
-    doc.text(infoClienteDerecha, 110, 55);
+    // --- SECCIÓN: INFORMACIÓN DE LAS PARTES (Dos Columnas) ---
+    doc.setDrawColor(220, 225, 230);
+    doc.line(15, 42, 195, 42);
 
-    // Espacio base donde va a arrancar la primera tabla
-    let yStart = 72;
+    let yClient = 49;
+    // Columna 1: Datos del Cliente
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("PREPARADO PARA:", 15, yClient);
+    
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+    doc.text(`${p.nombre} ${p.apellido}`, 15, yClient + 6);
+    
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+    doc.text(`Tel: ${p.telefono || "---"}`, 15, yClient + 11);
+    doc.text(`Email: ${p.email || "---"}`, 15, yClient + 16);
+    doc.text(`Dirección: ${p.direccion || "---"}, ${p.localidad || "---"}`, 15, yClient + 21);
 
-    // --- TABLA 1: MANO DE OBRA ---
+    // Columna 2: Datos de Vencimiento / Términos
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("VALIDEZ DEL TRABAJO:", 130, yClient);
+    
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+    doc.text(`Vence el: ${formatearFecha(p.vencimiento)}`, 130, yClient + 6);
+    doc.text("Moneda: Pesos Argentinos ($)", 130, yClient + 11);
+
+    let yStart = 82;
+
+    // --- TABLA 1: DETALLE DE MANO DE OBRA ---
     if (p.trabajos && p.trabajos.length > 0) {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text("DETALLE DE TRABAJOS (MANO DE OBRA)", 15, yStart);
+        doc.text("DETALLE DE MANO DE OBRA Y TAREAS", 15, yStart);
 
         const bodyTrabajos = p.trabajos.map(t => [
-            t.trabajo, 
-            t.cantidad.toString(), 
-            `$${t.precio}`, 
-            `$${t.total}`
+            t.trabajo,
+            { content: t.cantidad.toString(), styles: { halign: "center" } },
+            { content: `$${t.precio}`, styles: { halign: "right" } },
+            { content: `$${t.total}`, styles: { halign: "right" } }
         ]);
 
         doc.autoTable({
             startY: yStart + 3,
-            head: [["Descripción del Trabajo", "Cant.", "Precio Unit.", "Subtotal"]],
+            head: [["Descripción de la Tarea / Servicio", "Cant.", "Precio Unit.", "Total"]],
             body: bodyTrabajos,
             theme: "striped",
-            headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: "bold" },
-            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
+            styles: { fontSize: 9, cellPadding: 3.5, textColor: darkColor },
             columnStyles: {
                 0: { cellWidth: "auto" },
-                1: { halign: "center", cellWidth: 15 },
-                2: { halign: "right", cellWidth: 30 },
-                3: { halign: "right", cellWidth: 30 }
-            }
+                1: { cellWidth: 15 },
+                2: { cellWidth: 28 },
+                3: { cellWidth: 28 }
+            },
+            margin: { left: 15, right: 15 }
         });
         yStart = doc.lastAutoTable.finalY + 10;
     }
 
-    // --- TABLA 2: MATERIALES (Opcional, solo si hay cargados) ---
-    // Filtramos si el primer material tiene texto para saber si el usuario cargó algo real
-    const tieneMateriales = p.materiales && p.materiales.length > 0 && p.materiales[0].trabajo !== "";
+    // --- TABLA 2: MATERIALES (Opcional - Inteligente) ---
+    // Chequeamos si el primer material tiene texto cargado
+    const tieneMateriales = p.materiales && p.materiales.length > 0 && p.materiales[0].trabajo.trim() !== "";
     
     if (tieneMateriales) {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-        doc.text("MATERIALES UTILIZADOS", 15, yStart);
+        doc.text("MATERIALES PRESUPUESTADOS", 15, yStart);
 
         const bodyMateriales = p.materiales.map(m => [
-            m.trabajo, 
-            m.cantidad.toString(), 
-            `$${Number(m.precio).toLocaleString("es-AR")}`, 
-            `$${m.total}`
+            m.trabajo,
+            { content: m.cantidad.toString(), styles: { halign: "center" } },
+            { content: `$${Number(m.precio).toLocaleString("es-AR")}`, styles: { halign: "right" } },
+            { content: `$${m.total}`, styles: { halign: "right" } }
         ]);
 
         doc.autoTable({
             startY: yStart + 3,
-            head: [["Descripción del Material", "Cant.", "Precio Unit.", "Subtotal"]],
+            head: [["Descripción del Material", "Cant.", "Precio Unit.", "Total"]],
             body: bodyMateriales,
             theme: "striped",
-            headStyles: { fillColor: [80, 90, 100], textColor: [255, 255, 255], fontStyle: "bold" },
-            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: [80, 90, 100], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
+            styles: { fontSize: 9, cellPadding: 3.5, textColor: darkColor },
             columnStyles: {
                 0: { cellWidth: "auto" },
-                1: { halign: "center", cellWidth: 15 },
-                2: { halign: "right", cellWidth: 30 },
-                3: { halign: "right", cellWidth: 30 }
-            }
+                1: { cellWidth: 15 },
+                2: { cellWidth: 28 },
+                3: { cellWidth: 28 }
+            },
+            margin: { left: 15, right: 15 }
         });
         yStart = doc.lastAutoTable.finalY + 10;
     }
 
-    // --- OBSERVACIONES ---
+    // --- SECCIÓN INFERIOR: OBSERVACIONES Y TOTALES ---
+    // Verificar si nos queda espacio suficiente en la página, sino saltar automáticamente
+    if (yStart > 220) {
+        doc.addPage();
+        yStart = 20;
+    }
+
+    // Cuadro de Observaciones (Izquierda)
     if (p.observaciones && p.observaciones.trim() !== "") {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(10);
         doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-        doc.text("Observaciones y condiciones:", 15, yStart);
+        doc.text("Notas y Condiciones de Servicio:", 15, yStart);
         
         doc.setFont("Helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
         
-        // Ajustamos el texto largo para que no se desborde del margen del PDF
-        const lineasObs = doc.splitTextToSize(p.observaciones, 110);
+        // Evita desbordes automáticos del cuadro rompiendo las líneas largas
+        const lineasObs = doc.splitTextToSize(p.observaciones, 105);
         doc.text(lineasObs, 15, yStart + 5);
     }
 
-    // --- CUADRO DE TOTALES (Fijo a la derecha) ---
+    // Desglose de Totales (Derecha alineada)
     let yTotales = yStart;
     doc.setFont("Helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
 
-    // Subtotales base
-    doc.text(`Subtotal M. Obra:`, 135, yTotales);
+    doc.text("Subtotal Mano de Obra:", 130, yTotales);
     doc.text(`$${p.subtotalMO}`, 195, yTotales, { align: "right" });
 
-    doc.text(`Subtotal Materiales:`, 135, yTotales + 5);
+    doc.text("Subtotal Materiales:", 130, yTotales + 5);
     doc.text(`$${p.subtotalMat}`, 195, yTotales + 5, { align: "right" });
 
-    // Modificadores opcionales (solo los muestra si son mayores a cero)
     let offset = 10;
-    if (Number(p.ganancia) > 0) {
-        doc.text(`Ganancia M.O. (+${p.ganancia}%):`, 135, yTotales + offset);
-        // El cálculo ya viene integrado en el total de la pantalla, así que solo indicamos el % configurado
-        doc.text(`Incluido`, 195, yTotales + offset, { align: "right" });
+    if (Number(p.ganancia) > 0 && p.ganancia !== "30") { // Muestra si fue modificada del estándar
+        doc.text(`Ganancia M.O. (+${p.ganancia}%):`, 130, yTotales + offset);
+        doc.text("Incluido", 195, yTotales + offset, { align: "right" });
         offset += 5;
     }
     if (Number(p.descuento) > 0) {
-        doc.text(`Descuento M.O. (-${p.descuento}%):`, 135, yTotales + offset);
-        doc.text(`Incluido`, 195, yTotales + offset, { align: "right" });
+        doc.text(`Descuento M.O. (-${p.descuento}%):`, 130, yTotales + offset);
+        doc.text("Incluido", 195, yTotales + offset, { align: "right" });
         offset += 5;
     }
     if (Number(p.viaticos) > 0) {
-        doc.text(`Viáticos / Traslado:`, 135, yTotales + offset);
+        doc.text("Viáticos / Traslados:", 130, yTotales + offset);
         doc.text(`+$${Number(p.viaticos).toLocaleString("es-AR")}`, 195, yTotales + offset, { align: "right" });
         offset += 5;
     }
 
-    // Línea final antes del Total General
-    doc.setDrawColor(180, 180, 180);
-    doc.line(135, yTotales + offset - 2, 195, yTotales + offset - 2);
+    // Línea divisoria de Cierre
+    doc.setDrawColor(200, 205, 210);
+    doc.line(130, yTotales + offset - 1, 195, yTotales + offset - 1);
 
-    // TOTAL GENERAL IMPONENTE
+    // DESTACADO DEL TOTAL GENERAL
+    doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+    doc.rect(130, yTotales + offset + 2, 65, 10, "F");
+
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(2, 196, 105); // Color Verde Éxito de tu app
-    doc.text(`TOTAL FINAL:`, 135, yTotales + offset + 3);
-    doc.text(`$${p.total}`, 195, yTotales + offset + 3, { align: "right" });
+    doc.setFontSize(12);
+    doc.setTextColor(successColor[0], successColor[1], successColor[2]); // Color verde de la app
+    doc.text("TOTAL:", 134, yTotales + offset + 8.5);
+    doc.text(`$${p.total}`, 191, yTotales + offset + 8.5, { align: "right" });
 
-    // --- PIE DE PÁGINA Y FIRMA ---
-    // Línea de firma (Fija abajo en el papel)
-    doc.setDrawColor(200, 200, 200);
-    doc.line(65, 265, 145, 265);
+    // --- PIE DE PÁGINA (Línea de firma y pie técnico fijo) ---
+    doc.setDrawColor(210, 215, 220);
+    doc.line(65, 268, 145, 268);
+    
     doc.setFont("Helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Firma del Técnico Responsable", 105, 270, { align: "center" });
+    doc.text("Firma o Sello del Técnico Responsable", 105, 273, { align: "center" });
 
-    // Guardar o descargar el PDF con el nombre del cliente y número
-    doc.save(`Presupuesto_${p.numero}_${p.nombre}_${p.apellido}.pdf`);
+    // Nombre del archivo dinámico y limpio
+    const nombreArchivo = `Presupuesto_${p.numero}_${p.nombre}_${p.apellido}.pdf`.replace(/\s+/g, "_");
+    doc.save(nombreArchivo);
 }
 
-// Función auxiliar para pasar las fechas de YYYY-MM-DD a DD/MM/YYYY
+// Convierte fechas de YYYY-MM-DD a DD/MM/YYYY para que se vea correcto en Argentina
 function formatearFecha(fechaString) {
     if (!fechaString) return "";
     const partes = fechaString.split("-");
