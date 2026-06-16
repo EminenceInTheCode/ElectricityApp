@@ -93,13 +93,9 @@ function capturarFormularioPrincipal() {
         email: document.getElementById("email")?.value || "",
         direccion: document.getElementById("direccion")?.value || "",
         localidad: document.getElementById("localidad")?.value || "",
-        observaciones: document.getElementById("observaciones")?.value || "",
         subtotalMO: document.getElementById("subtotal-mo")?.innerText || "0",
         subtotalMat: document.getElementById("subtotal-mat")?.innerText || "0",
         total: document.getElementById("totalGeneral")?.innerText || "0",
-        ganancia: document.getElementById("ganancia")?.value || "0",
-        descuento: document.getElementById("descuento")?.value || "0",
-        viaticos: document.getElementById("viaticos")?.value || "0",
         trabajos: extraerFilasDeTabla("trabajos"),
         materiales: extraerFilasDeTabla("materiales")
     };
@@ -166,13 +162,9 @@ function mapearYConstruir(p) {
         email: p.email || p.email_cliente || "",
         direccion: p.direccion || "",
         localidad: p.localidad || "",
-        observaciones: p.observaciones || p.notas || "",
         subtotalMO: p.subtotalMO || p.subtotal_mo || "0",
         subtotalMat: p.subtotalMat || p.subtotal_mat || "0",
         total: p.total || p.total_general || "0",
-        ganancia: p.ganancia || p.porcentaje_ganancia || "0",
-        descuento: p.descuento || p.porcentaje_descuento || "0",
-        viaticos: p.viaticos || p.costo_viaticos || "0",
         trabajos: normalizarLista(p.trabajos || p.detalles || p.items_mano_obra || p.items || []),
         materiales: normalizarLista(p.materiales || p.items_materiales || [])
     };
@@ -275,7 +267,7 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 32, 26);
+    doc.text("Instalaciones • Mantenimiento • Obras", 32, 26);
 
     // --- DATOS CORPORATIVOS: IAN BUSTO ---
     let yPrestador = 19;
@@ -286,8 +278,8 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Técnico Electricista", 118, yPrestador + 4, { align: "right" });
-    doc.text("Tel: +54 9 223 XXX-XXXX", 118, yPrestador + 8, { align: "right" }); // Modificá tu número acá directo
+    doc.text("Electricista", 118, yPrestador + 4, { align: "right" });
+    doc.text("Tel: +54 9 223 595-0495", 118, yPrestador + 8, { align: "right" }); // Modificá tu número acá directo
 
     // Bloque derecho de la Factura/Presupuesto
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
@@ -392,18 +384,6 @@ function construirPDF(p) {
 
     if (yStart > 220) { doc.addPage(); yStart = 20; }
 
-    // Observaciones
-    if (p.observaciones && p.observaciones.trim() !== "") {
-        doc.setFont("Helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-        doc.text("Notas y Condiciones de Servicio:", 15, yStart);
-        doc.setFont("Helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-        const lineasObs = doc.splitTextToSize(p.observaciones, 105);
-        doc.text(lineasObs, 15, yStart + 5);
-    }
 
     // Totales finales
     let yTotales = yStart;
@@ -417,22 +397,6 @@ function construirPDF(p) {
     doc.text("Subtotal Materiales:", 130, yTotales + 5);
     doc.text(p.subtotalMat.includes("$") ? p.subtotalMat : `$${p.subtotalMat}`, 195, yTotales + 5, { align: "right" });
 
-    let offset = 10;
-    if (Number(p.ganancia) > 0) {
-        doc.text(`Ganancia M.O. (+${p.ganancia}%):`, 130, yTotales + offset);
-        doc.text("Incluido", 195, yTotales + offset, { align: "right" });
-        offset += 5;
-    }
-    if (Number(p.descuento) > 0) {
-        doc.text(`Descuento M.O. (-${p.descuento}%):`, 130, yTotales + offset);
-        doc.text("Incluido", 195, yTotales + offset, { align: "right" });
-        offset += 5;
-    }
-    if (Number(p.viaticos) > 0) {
-        doc.text("Viáticos / Traslados:", 130, yTotales + offset);
-        doc.text(`+$${Number(p.viaticos).toLocaleString("es-AR")}`, 195, yTotales + offset, { align: "right" });
-        offset += 5;
-    }
 
     doc.setDrawColor(200, 205, 210);
     doc.line(130, yTotales + offset - 1, 195, yTotales + offset - 1);
@@ -456,7 +420,7 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Técnico Electricista Responsable", 105, 276, { align: "center" });
+    doc.text("Electricista Responsable", 105, 276, { align: "center" });
 
     const nombreArchivo = `Presupuesto_${p.numero}_${p.nombre}_${p.apellido}.pdf`.replace(/\s+/g, "_");
     doc.save(nombreArchivo);
