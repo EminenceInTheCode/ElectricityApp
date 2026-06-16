@@ -1,12 +1,25 @@
-// ==========================================
-// CONFIGURACIÓN DE GENERACIÓN DE PDF PROFESIONAL (VERSIÓN ANTIBOMBAS)
-// ==========================================
+// =========================================================================
+// CONFIGURACIÓN DE GENERACIÓN DE PDF PROFESIONAL - COMPATIBILIDAD UNIVERSAL
+// =========================================================================
 
-// Función principal llamada desde el botón "Generar PDF" del panel
-function generarPDF() {
-    // Capturamos los datos de la pantalla usando "?.value" y "?..innerText" 
-    // para que si un ID no coincide, la app NO se rompa y siga adelante.
-    const presupuesto = {
+// 1. FUNCIÓN PRINCIPAL: Panel de carga (Pantalla actual)
+function generarPDF(datosAlternativos) {
+    // Si la función es llamada desde el historial pasándole el objeto directamente
+    if (datosAlternativos && typeof datosAlternativos === 'object' && !datosAlternativos.target) {
+        mapearYConstruir(datosAlternativos);
+        return;
+    }
+
+    // Si viene en formato texto/string de JSON, lo parseamos
+    if (typeof datosAlternativos === 'string') {
+        try {
+            mapearYConstruir(JSON.parse(datosAlternativos));
+            return;
+        } catch(e) { console.error("Error al parsear datos string", e); }
+    }
+
+    // Si no viene ningún parámetro, leemos los campos interactivos de la pantalla actual
+    const presupuestoPantalla = {
         numero: document.getElementById("numeroPresupuesto")?.value || "0001",
         fecha: document.getElementById("fecha")?.value || "",
         vencimiento: document.getElementById("vencimiento")?.value || "",
@@ -23,23 +36,82 @@ function generarPDF() {
         ganancia: document.getElementById("ganancia")?.value || "0",
         descuento: document.getElementById("descuento")?.value || "0",
         viaticos: document.getElementById("viaticos")?.value || "0",
-        // Usamos nuestro propio extractor seguro de tablas integrado abajo
         trabajos: extraerFilasDeTabla("trabajos"),
         materiales: extraerFilasDeTabla("materiales")
     };
 
-    construirPDF(presupuesto);
+    mapearYConstruir(presupuestoPantalla);
 }
 
-// Función que se ejecuta al presionar el botón de la hoja (📄) en el Historial
-function generarPDFFromStorage() {
-    const data = localStorage.getItem("presupuestoPDF");
-    if (!data) return;
-    const presupuesto = JSON.parse(data);
-    construirPDF(presupuesto);
+// 2. DOS REFUERZOS ADICIONALES (Por si tu script.js llama a estas funciones específicas)
+function generarPDFFromStorage(datos) { generarPDF(datos || localStorage.getItem("presupuestoPDF")); }
+function generarPDFDesdeHistorial(datos) { generarPDF(datos); }
+function imprimirPresupuesto(datos) { generarPDF(datos); }
+function descargarPDF(datos) { generarPDF(datos); }
+
+
+// TRADUCTOR INTELIGENTE DE DATOS (Soporta camelCase y snake_case de Base de Datos)
+function mapearYConstruir(p) {
+    if (!p) return;
+
+    // Normalizamos todos los campos por si la base de datos los devolvió con guiones bajos
+    const presupuestoNormalizado = {
+        numero: p.numero || p.numero_presupuesto || p.id || "0001",
+        fecha: p.fecha || p.fecha_emision || "",
+        vencimiento: p.vencimiento || p.fecha_vencimiento || "",
+        nombre: p.nombre || p.nombre_cliente || "Cliente",
+        apellido: p.apellido || p.apellido_cliente || "",
+        telefono: p.telefono || p.telefono_cliente || "",
+        email: p.email || p.email_cliente || "",
+        direccion: p.direccion || "",
+        localidad: p.localidad || "",
+        observaciones: p.observaciones || p.notas || "",
+        subtotalMO: p.subtotalMO || p.subtotal_mo || "0",
+        subtotalMat: p.subtotalMat || p.subtotal_mat || "0",
+        total: p.total || p.total_general || "0",
+        ganancia: p.ganancia || p.porcentaje_ganancia || "0",
+        descuento: p.descuento || p.porcentaje_descuento || "0",
+        viaticos: p.viaticos || p.costo_viaticos || "0",
+        
+        // Normalización de las subtablas internas
+        trabajos: normalizarLista(p.trabajos || p.detalles || p.items_mano_obra || []),
+        materiales: normalizarLista(p.materiales || p.items_materiales || [])
+    };
+
+    // Si las listas están vacías e indica historial en pantalla, intenta capturar lo visual
+    if (presupuestoNormalizado.trabajos.length === 0) {
+        presupuestoNormalizado.trabajos = extraerFilasDeTabla("trabajos");
+    }
+    if (presupuestoNormalizado.materiales.length === 0) {
+        presupuestoNormalizado.materiales = extraerFilasDeTabla("materiales");
+    }
+
+    construirPDF(presupuestoNormalizado);
 }
 
-// EXTRACTOR AUTOMÁTICO Y SEGURO DE TABLAS HTML
+// Normaliza las filas de las tablas (ej: convierte 'descripcion' o 'detalle' en 'trabajo')
+function normalizarLista(lista) {
+    if (!Array.isArray(lista)) return [];
+    return lista.map(item => {
+        let desc = item.trabajo || item.descripcion || item.detalle || item.item || "";
+        let cant = item.cantidad || item.cant || "1";
+        let prec = item.precio || item.precio_unitario || "0";
+        let tot = item.total || "0";
+        
+        if (tot === "0" && prec !== "0") {
+            tot = (parseFloat(cant) * parseFloat(prec)).toString();
+        }
+        
+        return {
+            trabajo: desc,
+            cantidad: cant,
+            precio: parseFloat(prec).toLocaleString("es-AR"),
+            total: parseFloat(tot).toLocaleString("es-AR")
+        };
+    }).filter(i => i.trabajo.trim() !== "");
+}
+
+// LECTOR COMPLETO DE TABLAS EN HOJA HTML
 function extraerFilasDeTabla(idTabla) {
     const tabla = document.getElementById(idTabla) || document.querySelector(`#${idTabla}`);
     if (!tabla) return [];
@@ -48,16 +120,13 @@ function extraerFilasDeTabla(idTabla) {
     const filas = tabla.querySelectorAll("tbody tr, tr");
     
     filas.forEach(fila => {
-        // Ignoramos la fila si es el encabezado de la tabla
-        if (fila.querySelector("th")) return;
+        if (fila.querySelector("th")) return; // Salteamos cabecera
         
-        // Caso 1: La tabla tiene inputs (Formulario de carga)
         const inputs = fila.querySelectorAll("input, textarea");
         if (inputs.length >= 2) {
             let desc = "";
             let cant = "1";
             let prec = "0";
-            let tot = "0";
             
             inputs.forEach((input, index) => {
                 if (input.type === "text" || input.tagName === "TEXTAREA") desc = input.value;
@@ -65,30 +134,26 @@ function extraerFilasDeTabla(idTabla) {
                 if (input.type === "number" && index === 2) prec = input.value;
             });
             
-            // Si los inputs no tenían esos tipos, los sacamos por orden físico básico
             if (!desc && inputs[0]) desc = inputs[0].value;
             
             if (desc.trim() !== "") {
-                let totalCalculado = (parseFloat(cant) || 1) * (parseFloat(prec) || 0);
+                let totalCalc = (parseFloat(cant) || 1) * (parseFloat(prec) || 0);
                 resultado.push({
                     trabajo: desc,
                     cantidad: cant || "1",
-                    precio: parseFloat(prec).toLocaleString("es-AR") || "0",
-                    total: totalCalculado.toLocaleString("es-AR")
+                    precio: parseFloat(prec).toLocaleString("es-AR"),
+                    total: totalCalc.toLocaleString("es-AR")
                 });
             }
-        } 
-        // Caso 2: La tabla tiene celdas de texto común (Historial o Vista estática)
-        else {
+        } else {
             const celdas = fila.querySelectorAll("td");
             if (celdas.length >= 4) {
-                // Según tu formato visual clásico: Cant, Trabajo, Precio, Total
                 let cant = celdas[0].innerText.trim();
                 let desc = celdas[1].innerText.trim();
-                let prec = celdas[2].innerText.trim().replace("$", "");
-                let tot = celdas[3].innerText.trim().replace("$", "");
+                let prec = celdas[2].innerText.trim().replace("$", "").trim();
+                let tot = celdas[3].innerText.trim().replace("$", "").trim();
                 
-                if (desc !== "" && !desc.includes("Subtotal") && !desc.includes("TOTAL")) {
+                if (desc !== "" && !desc.includes("Subtotal") && !desc.includes("TOTAL") && !desc.includes("Acciones")) {
                     resultado.push({ trabajo: desc, cantidad: cant, precio: prec, total: tot });
                 }
             }
@@ -97,22 +162,20 @@ function extraerFilasDeTabla(idTabla) {
     return resultado;
 }
 
-// ARQUITECTURA Y DISEÑO DEL PDF MEJORADO
+// MOTOR DE MAQUETADO GRÁFICO DEL PDF
 function construirPDF(p) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
 
-    // --- PALETA DE COLORES ---
-    const primaryColor = [3, 96, 235];   // Azul Eléctrico
-    const successColor = [2, 196, 105];  // Verde Éxito
-    const darkColor = [40, 44, 52];     // Gris Carbón
-    const grayColor = [110, 120, 130];   // Gris Neutro
-    const lightBg = [248, 249, 250];     // Fondo bloques
+    const primaryColor = [3, 96, 235];   
+    const successColor = [2, 196, 105];  
+    const darkColor = [40, 44, 52];     
+    const grayColor = [110, 120, 130];   
+    const lightBg = [248, 249, 250];     
 
-    // --- ENCABEZADO DE MARCA ---
+    // Encabezado
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.rect(15, 15, 12, 12, "F");
-    
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(14);
@@ -127,15 +190,13 @@ function construirPDF(p) {
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
     doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 32, 26);
 
-    // Detalle Documento (Bloque Derecho)
+    // Caja de número y fecha
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
     doc.rect(130, 15, 65, 22, "F");
-    
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text("PRESUPUESTO", 135, 21);
-    
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
@@ -145,18 +206,16 @@ function construirPDF(p) {
     doc.setDrawColor(220, 225, 230);
     doc.line(15, 42, 195, 42);
 
-    // --- INFORMACIÓN DEL CLIENTE ---
+    // Cliente
     let yClient = 49;
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text("PREPARADO PARA:", 15, yClient);
-    
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
     doc.text(`${p.nombre} ${p.apellido}`, 15, yClient + 6);
-    
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
@@ -168,7 +227,6 @@ function construirPDF(p) {
     doc.setFontSize(10);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.text("VALIDEZ DEL TRABAJO:", 130, yClient);
-    
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
@@ -177,7 +235,7 @@ function construirPDF(p) {
 
     let yStart = 82;
 
-    // --- TABLA 1: MANO DE OBRA ---
+    // Tabla 1: Mano de obra
     if (p.trabajos && p.trabajos.length > 0) {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(11);
@@ -204,8 +262,9 @@ function construirPDF(p) {
         yStart = doc.lastAutoTable.finalY + 10;
     }
 
-    // --- TABLA 2: MATERIALES ---
-    if (p.materiales && p.materiales.length > 0) {
+    // Tabla 2: Materiales
+    const tieneMat = p.materiales && p.materiales.length > 0 && p.materiales[0].trabajo.trim() !== "";
+    if (tieneMat) {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -231,26 +290,22 @@ function construirPDF(p) {
         yStart = doc.lastAutoTable.finalY + 10;
     }
 
-    if (yStart > 220) {
-        doc.addPage();
-        yStart = 20;
-    }
+    if (yStart > 220) { doc.addPage(); yStart = 20; }
 
-    // --- OBSERVACIONES Y TOTALES ---
+    // Observaciones
     if (p.observaciones && p.observaciones.trim() !== "") {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(10);
         doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
         doc.text("Notas y Condiciones de Servicio:", 15, yStart);
-        
         doc.setFont("Helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-        
         const lineasObs = doc.splitTextToSize(p.observaciones, 105);
         doc.text(lineasObs, 15, yStart + 5);
     }
 
+    // Totales
     let yTotales = yStart;
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9.5);
@@ -291,10 +346,9 @@ function construirPDF(p) {
     doc.text("TOTAL:", 134, yTotales + offset + 8.5);
     doc.text(p.total.includes("$") ? p.total : `$${p.total}`, 191, yTotales + offset + 8.5, { align: "right" });
 
-    // --- PIE DE PÁGINA ---
+    // Pie
     doc.setDrawColor(210, 215, 220);
     doc.line(65, 268, 145, 268);
-    
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
