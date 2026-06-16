@@ -1,24 +1,100 @@
 // =========================================================================
-// CONFIGURACIÓN DE GENERACIÓN DE PDF PROFESIONAL - COMPATIBILIDAD UNIVERSAL
+// CONFIGURACIÓN DE PDF PROFESIONAL - DETECTOR INTELIGENTE DE HISTORIAL
 // =========================================================================
 
-// 1. FUNCIÓN PRINCIPAL: Panel de carga (Pantalla actual)
+// Función principal adaptativa (Soporta clics directos, IDs, objetos o eventos)
 function generarPDF(datosAlternativos) {
-    // Si la función es llamada desde el historial pasándole el objeto directamente
-    if (datosAlternativos && typeof datosAlternativos === 'object' && !datosAlternativos.target) {
-        mapearYConstruir(datosAlternativos);
-        return;
-    }
+    let objetoEncontrado = null;
+    let elementoFila = null;
 
-    // Si viene en formato texto/string de JSON, lo parseamos
-    if (typeof datosAlternativos === 'string') {
-        try {
-            mapearYConstruir(JSON.parse(datosAlternativos));
+    // 1. SI NO VIENE NADA: Es el botón "Generar PDF" grande del panel principal
+    if (!datosAlternativos || datosAlternativos instanceof Event || datosAlternativos.target) {
+        // Verificamos si se hizo clic en un botón del historial pasando el evento
+        const elementoClickeado = datosAlternativos?.target || datosAlternativos;
+        if (elementoClickeado && typeof elementoClickeado.closest === 'function') {
+            elementoFila = elementoClickeado.closest("tr");
+        }
+        
+        // Si no es un botón de fila de tabla, leemos los campos del formulario principal
+        if (!elementoFila) {
+            capturarFormularioPrincipal();
             return;
-        } catch(e) { console.error("Error al parsear datos string", e); }
+        }
     }
 
-    // Si no viene ningún parámetro, leemos los campos interactivos de la pantalla actual
+    // 2. SI VIENE UN OBJETO DIRECTO: Lo usamos directamente
+    if (datosAlternativos && typeof datosAlternativos === 'object' && !datosAlternativos.target) {
+        objetoEncontrado = datosAlternativos;
+    }
+
+    // 3. SI VIENE UN TEXTO (Puede ser un JSON string o un ID de presupuesto como 'PRES-0001')
+    if (typeof datosAlternativos === 'string') {
+        const textoLimpio = datosAlternativos.trim();
+        if (textoLimpio.startsWith("{") || textoLimpio.startsWith("[")) {
+            try {
+                objetoEncontrado = JSON.parse(textoLimpio);
+            } catch (e) { console.error("Error parseando JSON", e); }
+        }
+        
+        // Si no era JSON, asumimos que es un ID/Número. Lo buscamos en la base de datos local
+        if (!objetoEncontrado) {
+            objetoEncontrado = buscarPresupuestoEnMemoria(textoLimpio);
+            
+            // Si no está en memoria, buscamos la fila HTML de la tabla que contenga ese ID
+            if (!objetoEncontrado) {
+                const filas = document.querySelectorAll("table tr, tbody tr");
+                for (let f of filas) {
+                    if (f.innerText.includes(textoLimpio)) {
+                        elementoFila = f;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. SI VIENE UN NÚMERO: Es un ID numérico o un índice de fila
+    if (typeof datosAlternativos === 'number') {
+        objetoEncontrado = buscarPresupuestoEnMemoria(datosAlternativos) || window.presupuestos?.[datosAlternativos];
+    }
+
+    // 5. RESPALDO ABSOLUTO: Si encontramos la fila de la tabla pero no los datos en memoria, los extraemos de la pantalla
+    if (elementoFila && !objetoEncontrado) {
+        const celdas = elementoFila.querySelectorAll("td");
+        if (celdas.length >= 4) {
+            const numPresupuesto = celdas[0].innerText.trim();
+            const nombreCompleto = celdas[1].innerText.trim().split(" ");
+            const primerNombre = nombreCompleto[0] || "Cliente";
+            const apellidoRestante = nombreCompleto.slice(1).join(" ") || "";
+            const fechaPresupuesto = celdas[2].innerText.trim();
+            const totalPresupuesto = celdas[3].innerText.trim().replace("$", "").trim();
+
+            objetoEncontrado = {
+                numero: numPresupuesto,
+                nombre: primerNombre,
+                apellido: apellidoRestante,
+                fecha: fechaPresupuesto,
+                vencimiento: fechaPresupuesto,
+                total: totalPresupuesto,
+                subtotalMO: document.getElementById("subtotal-mo")?.innerText || totalPresupuesto,
+                subtotalMat: document.getElementById("subtotal-mat")?.innerText || "0",
+                trabajos: extraerFilasDeTabla("trabajos"),
+                materiales: extraerFilasDeTabla("materiales")
+            };
+        }
+    }
+
+    // Si logramos armar o encontrar el objeto, lo mandamos a construir
+    if (objetoEncontrado) {
+        mapearYConstruir(objetoEncontrado);
+    } else {
+        // Caída final segura: Lee la pantalla actual
+        capturarFormularioPrincipal();
+    }
+}
+
+// CAPTURA LOS DATOS DEL FORMULARIO DE LA PANTALLA PRINCIPAL
+function capturarFormularioPrincipal() {
     const presupuestoPantalla = {
         numero: document.getElementById("numeroPresupuesto")?.value || "0001",
         fecha: document.getElementById("fecha")?.value || "",
@@ -39,26 +115,54 @@ function generarPDF(datosAlternativos) {
         trabajos: extraerFilasDeTabla("trabajos"),
         materiales: extraerFilasDeTabla("materiales")
     };
-
     mapearYConstruir(presupuestoPantalla);
 }
 
-// 2. DOS REFUERZOS ADICIONALES (Por si tu script.js llama a estas funciones específicas)
-function generarPDFFromStorage(datos) { generarPDF(datos || localStorage.getItem("presupuestoPDF")); }
-function generarPDFDesdeHistorial(datos) { generarPDF(datos); }
-function imprimirPresupuesto(datos) { generarPDF(datos); }
-function descargarPDF(datos) { generarPDF(datos); }
+// BUSCADOR INTERNO EN LOCALSTORAGE Y VARIABLES GLOBALES
+function buscarPresupuestoEnMemoria(idBuscado) {
+    const idStr = idBuscado.toString().trim();
+    const llavesStorage = ["presupuestos", "listaPresupuestos", "presupuestoPDF", "historial", "presupuestos_cache"];
+    
+    // Buscar en LocalStorage
+    for (let k of llavesStorage) {
+        try {
+            const copia = localStorage.getItem(k);
+            if (copia) {
+                const datos = JSON.parse(copia);
+                if (Array.isArray(datos)) {
+                    let encontrado = datos.find(i => (i.id?.toString() === idStr || i.numero?.toString() === idStr || i.numero_presupuesto?.toString() === idStr));
+                    if (encontrado) return encontrado;
+                }
+            }
+        } catch(e) {}
+    }
 
+    // Buscar en variables globales que use tu script.js
+    const globales = ["presupuestos", "listaPresupuestos", "todosLosPresupuestos", "dataPresupuestos"];
+    for (let g of globales) {
+        if (window[g] && Array.isArray(window[g])) {
+            let encontrado = window[g].find(i => (i.id?.toString() === idStr || i.numero?.toString() === idStr || i.numero_presupuesto?.toString() === idStr));
+            if (encontrado) return encontrado;
+        }
+    }
+    return null;
+}
 
-// TRADUCTOR INTELIGENTE DE DATOS (Soporta camelCase y snake_case de Base de Datos)
+// ENLACES DIRECTOS PARA TU SCRIPT.JS (Redirecciona cualquier variante de nombre de función)
+function generarPDFFromStorage(d) { generarPDF(d); }
+function generarPDFDesdeHistorial(d) { generarPDF(d); }
+function imprimirPresupuesto(d) { generarPDF(d); }
+function descargarPDF(d) { generarPDF(d); }
+function verPDF(d) { generarPDF(d); }
+
+// TRADUCTOR DE CAMPOS DE BASE DE DATOS (Soporta snake_case de Supabase)
 function mapearYConstruir(p) {
     if (!p) return;
 
-    // Normalizamos todos los campos por si la base de datos los devolvió con guiones bajos
-    const presupuestoNormalizado = {
+    const pLimpio = {
         numero: p.numero || p.numero_presupuesto || p.id || "0001",
-        fecha: p.fecha || p.fecha_emision || "",
-        vencimiento: p.vencimiento || p.fecha_vencimiento || "",
+        fecha: p.fecha || p.fecha_emision || p.created_at || "",
+        vencimiento: p.vencimiento || p.fecha_vencimiento || p.fecha || "",
         nombre: p.nombre || p.nombre_cliente || "Cliente",
         apellido: p.apellido || p.apellido_cliente || "",
         telefono: p.telefono || p.telefono_cliente || "",
@@ -72,46 +176,28 @@ function mapearYConstruir(p) {
         ganancia: p.ganancia || p.porcentaje_ganancia || "0",
         descuento: p.descuento || p.porcentaje_descuento || "0",
         viaticos: p.viaticos || p.costo_viaticos || "0",
-        
-        // Normalización de las subtablas internas
         trabajos: normalizarLista(p.trabajos || p.detalles || p.items_mano_obra || []),
         materiales: normalizarLista(p.materiales || p.items_materiales || [])
     };
 
-    // Si las listas están vacías e indica historial en pantalla, intenta capturar lo visual
-    if (presupuestoNormalizado.trabajos.length === 0) {
-        presupuestoNormalizado.trabajos = extraerFilasDeTabla("trabajos");
-    }
-    if (presupuestoNormalizado.materiales.length === 0) {
-        presupuestoNormalizado.materiales = extraerFilasDeTabla("materiales");
-    }
+    // Si los detalles de las filas están vacíos, intentamos capturar lo que esté en las tablas visuales
+    if (pLimpio.trabajos.length === 0) pLimpio.trabajos = extraerFilasDeTabla("trabajos");
+    if (pLimpio.materiales.length === 0) pLimpio.materiales = extraerFilasDeTabla("materiales");
 
-    construirPDF(presupuestoNormalizado);
+    construirPDF(pLimpio);
 }
 
-// Normaliza las filas de las tablas (ej: convierte 'descripcion' o 'detalle' en 'trabajo')
 function normalizarLista(lista) {
     if (!Array.isArray(lista)) return [];
-    return lista.map(item => {
-        let desc = item.trabajo || item.descripcion || item.detalle || item.item || "";
-        let cant = item.cantidad || item.cant || "1";
-        let prec = item.precio || item.precio_unitario || "0";
-        let tot = item.total || "0";
-        
-        if (tot === "0" && prec !== "0") {
-            tot = (parseFloat(cant) * parseFloat(prec)).toString();
-        }
-        
-        return {
-            trabajo: desc,
-            cantidad: cant,
-            precio: parseFloat(prec).toLocaleString("es-AR"),
-            total: parseFloat(tot).toLocaleString("es-AR")
-        };
-    }).filter(i => i.trabajo.trim() !== "");
+    return lista.map(i => ({
+        trabajo: i.trabajo || i.descripcion || i.detalle || i.item || "Servicio",
+        cantidad: i.cantidad || i.cant || "1",
+        precio: (i.precio || i.precio_unitario || "0").toString().replace("$", ""),
+        total: (i.total || "0").toString().replace("$", "")
+    })).filter(i => i.trabajo.trim() !== "");
 }
 
-// LECTOR COMPLETO DE TABLAS EN HOJA HTML
+// EXTRACTOR SEGURO DE TABLAS HTML
 function extraerFilasDeTabla(idTabla) {
     const tabla = document.getElementById(idTabla) || document.querySelector(`#${idTabla}`);
     if (!tabla) return [];
@@ -120,30 +206,20 @@ function extraerFilasDeTabla(idTabla) {
     const filas = tabla.querySelectorAll("tbody tr, tr");
     
     filas.forEach(fila => {
-        if (fila.querySelector("th")) return; // Salteamos cabecera
+        if (fila.querySelector("th")) return;
         
         const inputs = fila.querySelectorAll("input, textarea");
         if (inputs.length >= 2) {
-            let desc = "";
-            let cant = "1";
-            let prec = "0";
-            
+            let desc = ""; let cant = "1"; let prec = "0";
             inputs.forEach((input, index) => {
                 if (input.type === "text" || input.tagName === "TEXTAREA") desc = input.value;
                 if (input.type === "number" && index === 1) cant = input.value;
                 if (input.type === "number" && index === 2) prec = input.value;
             });
-            
             if (!desc && inputs[0]) desc = inputs[0].value;
-            
             if (desc.trim() !== "") {
-                let totalCalc = (parseFloat(cant) || 1) * (parseFloat(prec) || 0);
-                resultado.push({
-                    trabajo: desc,
-                    cantidad: cant || "1",
-                    precio: parseFloat(prec).toLocaleString("es-AR"),
-                    total: totalCalc.toLocaleString("es-AR")
-                });
+                let tCalc = (parseFloat(cant) || 1) * (parseFloat(prec) || 0);
+                resultado.push({ trabajo: desc, cantidad: cant || "1", precio: parseFloat(prec).toLocaleString("es-AR"), total: tCalc.toLocaleString("es-AR") });
             }
         } else {
             const celdas = fila.querySelectorAll("td");
@@ -152,7 +228,6 @@ function extraerFilasDeTabla(idTabla) {
                 let desc = celdas[1].innerText.trim();
                 let prec = celdas[2].innerText.trim().replace("$", "").trim();
                 let tot = celdas[3].innerText.trim().replace("$", "").trim();
-                
                 if (desc !== "" && !desc.includes("Subtotal") && !desc.includes("TOTAL") && !desc.includes("Acciones")) {
                     resultado.push({ trabajo: desc, cantidad: cant, precio: prec, total: tot });
                 }
@@ -162,7 +237,7 @@ function extraerFilasDeTabla(idTabla) {
     return resultado;
 }
 
-// MOTOR DE MAQUETADO GRÁFICO DEL PDF
+// MOTOR DE RENDERIZADO GRÁFICO DEL PDF MEJORADO
 function construirPDF(p) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
@@ -173,7 +248,7 @@ function construirPDF(p) {
     const grayColor = [110, 120, 130];   
     const lightBg = [248, 249, 250];     
 
-    // Encabezado
+    // Logo decorativo estilizado
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
     doc.rect(15, 15, 12, 12, "F");
     doc.setTextColor(255, 255, 255);
@@ -181,16 +256,16 @@ function construirPDF(p) {
     doc.setFontSize(14);
     doc.text("⚡", 18, 23);
 
+    // Nombre Empresa
     doc.setFontSize(22);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
     doc.text("ELECTRICIDAD", 32, 21);
-    
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
     doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 32, 26);
 
-    // Caja de número y fecha
+    // Caja Datos del Documento
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
     doc.rect(130, 15, 65, 22, "F");
     doc.setFont("Helvetica", "bold");
@@ -206,7 +281,7 @@ function construirPDF(p) {
     doc.setDrawColor(220, 225, 230);
     doc.line(15, 42, 195, 42);
 
-    // Cliente
+    // Bloque Información Cliente y Validez
     let yClient = 49;
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(10);
@@ -235,7 +310,7 @@ function construirPDF(p) {
 
     let yStart = 82;
 
-    // Tabla 1: Mano de obra
+    // Tabla de Mano de Obra
     if (p.trabajos && p.trabajos.length > 0) {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(11);
@@ -262,7 +337,7 @@ function construirPDF(p) {
         yStart = doc.lastAutoTable.finalY + 10;
     }
 
-    // Tabla 2: Materiales
+    // Tabla de Materiales
     const tieneMat = p.materiales && p.materiales.length > 0 && p.materiales[0].trabajo.trim() !== "";
     if (tieneMat) {
         doc.setFont("Helvetica", "bold");
@@ -292,7 +367,7 @@ function construirPDF(p) {
 
     if (yStart > 220) { doc.addPage(); yStart = 20; }
 
-    // Observaciones
+    // Notas y Observaciones
     if (p.observaciones && p.observaciones.trim() !== "") {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(10);
@@ -337,6 +412,7 @@ function construirPDF(p) {
     doc.setDrawColor(200, 205, 210);
     doc.line(130, yTotales + offset - 1, 195, yTotales + offset - 1);
 
+    // Caja del Total Destacado en Verde Éxito
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
     doc.rect(130, yTotales + offset + 2, 65, 10, "F");
 
@@ -346,7 +422,7 @@ function construirPDF(p) {
     doc.text("TOTAL:", 134, yTotales + offset + 8.5);
     doc.text(p.total.includes("$") ? p.total : `$${p.total}`, 191, yTotales + offset + 8.5, { align: "right" });
 
-    // Pie
+    // Pie de página de firmas
     doc.setDrawColor(210, 215, 220);
     doc.line(65, 268, 145, 268);
     doc.setFont("Helvetica", "normal");
