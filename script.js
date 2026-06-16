@@ -301,6 +301,11 @@ async function cargarHistorial() {
         return;
     }
 
+    // ⬇️ ESTA ES LA LÍNEA QUE TENÉS QUE AGREGAR VOS ⬇️
+    window.listaPresupuestos = presupuestos;
+
+    // Acá abajo sigue el resto de tu código que dibuja las filas en la tabla...
+
     presupuestosGlobales = presupuestos || [];
 
     let pendiente = 0, cobradoMes = 0;
