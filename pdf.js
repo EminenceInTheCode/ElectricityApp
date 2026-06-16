@@ -16,7 +16,7 @@ function generarPDF(datosAlternativos) {
         }
     }
 
-    // 2. SI SE HIZO CLIC EN UNA FILA, EXTRAEMOS EL NÚMERO DE PRESUPUESTO (Ej: PRES-0001)
+    // 2. SI SE HIZO CLIC EN UNA FILA, EXTRAEMOS EL NÚMERO DE PRESUPUESTO
     if (elementoFila) {
         const celdas = elementoFila.querySelectorAll("td");
         if (celdas.length > 0) {
@@ -93,6 +93,7 @@ function capturarFormularioPrincipal() {
         email: document.getElementById("email")?.value || "",
         direccion: document.getElementById("direccion")?.value || "",
         localidad: document.getElementById("localidad")?.value || "",
+        observaciones: document.getElementById("observaciones")?.value || "",
         subtotalMO: document.getElementById("subtotal-mo")?.innerText || "0",
         subtotalMat: document.getElementById("subtotal-mat")?.innerText || "0",
         total: document.getElementById("totalGeneral")?.innerText || "0",
@@ -105,8 +106,6 @@ function capturarFormularioPrincipal() {
 // BUSCADOR INTERNO EXHAUSTIVO EN LAS VARIABLES DE ALMACENAMIENTO
 function buscarPresupuestoEnMemoria(idBuscado) {
     const idStr = idBuscado.toString().trim().toLowerCase();
-    
-    // Lista de nombres de variables donde tu script.js podría guardar los presupuestos de Supabase
     const llaves = ["presupuestos", "listaPresupuestos", "todosLosPresupuestos", "historial", "dataPresupuestos", "presupuestos_cache"];
     
     // Buscar en LocalStorage
@@ -127,7 +126,7 @@ function buscarPresupuestoEnMemoria(idBuscado) {
         } catch(e) {}
     }
 
-    // Buscar en el objeto global Window (donde se mapean los arrays en ejecución)
+    // Buscar en el objeto global Window
     for (let g of llaves) {
         if (window[g] && Array.isArray(window[g])) {
             let enco = window[g].find(i => 
@@ -162,6 +161,7 @@ function mapearYConstruir(p) {
         email: p.email || p.email_cliente || "",
         direccion: p.direccion || "",
         localidad: p.localidad || "",
+        observaciones: p.observaciones || p.notas || "",
         subtotalMO: p.subtotalMO || p.subtotal_mo || "0",
         subtotalMat: p.subtotalMat || p.subtotal_mat || "0",
         total: p.total || p.total_general || "0",
@@ -169,7 +169,6 @@ function mapearYConstruir(p) {
         materiales: normalizarLista(p.materiales || p.items_materiales || [])
     };
 
-    // Si es un registro viejo sin ítems guardados, intenta manotear las tablas de la pantalla por las dudas
     if (pLimpio.trabajos.length === 0) pLimpio.trabajos = extraerFilasDeTabla("trabajos");
     if (pLimpio.materiales.length === 0) pLimpio.materiales = extraerFilasDeTabla("materiales");
 
@@ -241,7 +240,7 @@ function extraerFilasDeTabla(idTabla) {
     return resultado;
 }
 
-// MOTOR GRÁFICO DEL PDF MEJORADO (CON LOS DATOS DE IAN BUSTO)
+// MOTOR GRÁFICO DEL PDF MEJORADO
 function construirPDF(p) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
@@ -267,7 +266,7 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Instalaciones • Mantenimiento • Obras", 32, 26);
+    doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 32, 26);
 
     // --- DATOS CORPORATIVOS: IAN BUSTO ---
     let yPrestador = 19;
@@ -278,10 +277,10 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Electricista", 118, yPrestador + 4, { align: "right" });
-    doc.text("Tel: +54 9 223 595-0495", 118, yPrestador + 8, { align: "right" }); // Modificá tu número acá directo
+    doc.text("Técnico Electricista", 118, yPrestador + 4, { align: "right" });
+    doc.text("Cel: +54 9 223 456-7890", 118, yPrestador + 8, { align: "right" }); 
 
-    // Bloque derecho de la Factura/Presupuesto
+    // Bloque derecho del presupuesto
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
     doc.rect(125, 15, 70, 22, "F");
     doc.setFont("Helvetica", "bold");
@@ -314,7 +313,7 @@ function construirPDF(p) {
     doc.text(`Email: ${p.email || "---"}`, 15, yClient + 16);
     doc.text(`Dirección: ${p.direccion || "---"}, ${p.localidad || "---"}`, 15, yClient + 21);
 
-    // Validez
+    // Validez (MONEDA EN PESOS ARGENTINOS ELIMINADA)
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -323,7 +322,6 @@ function construirPDF(p) {
     doc.setFontSize(9);
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
     doc.text(`Vence el: ${formatearFecha(p.vencimiento)}`, 130, yClient + 6);
-    doc.text("Moneda: Pesos Argentinos ($)", 130, yClient + 11);
 
     let yStart = 82;
 
@@ -384,8 +382,20 @@ function construirPDF(p) {
 
     if (yStart > 220) { doc.addPage(); yStart = 20; }
 
+    // Observaciones
+    if (p.observaciones && p.observaciones.trim() !== "") {
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
+        doc.text("Notas y Condiciones de Servicio:", 15, yStart);
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+        const lineasObs = doc.splitTextToSize(p.observaciones, 105);
+        doc.text(lineasObs, 15, yStart + 5);
+    }
 
-    // Totales finales
+    // Totales finales (DESGLOSE DE GANANCIAS, DESCUENTOS Y VIÁTICOS ELIMINADOS)
     let yTotales = yStart;
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9.5);
@@ -397,7 +407,7 @@ function construirPDF(p) {
     doc.text("Subtotal Materiales:", 130, yTotales + 5);
     doc.text(p.subtotalMat.includes("$") ? p.subtotalMat : `$${p.subtotalMat}`, 195, yTotales + 5, { align: "right" });
 
-
+    let offset = 10;
     doc.setDrawColor(200, 205, 210);
     doc.line(130, yTotales + offset - 1, 195, yTotales + offset - 1);
 
@@ -410,7 +420,7 @@ function construirPDF(p) {
     doc.text("TOTAL:", 134, yTotales + offset + 8.5);
     doc.text(p.total.includes("$") ? p.total : `$${p.total}`, 191, yTotales + offset + 8.5, { align: "right" });
 
-    // --- SECCIÓN DE FIRMA CON TU NOMBRE ---
+    // --- SECCIÓN DE FIRMA ---
     doc.setDrawColor(210, 215, 220);
     doc.line(65, 268, 145, 268);
     doc.setFont("Helvetica", "bold");
@@ -420,7 +430,7 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Electricista Responsable", 105, 276, { align: "center" });
+    doc.text("Técnico Electricista Responsable", 105, 276, { align: "center" });
 
     const nombreArchivo = `Presupuesto_${p.numero}_${p.nombre}_${p.apellido}.pdf`.replace(/\s+/g, "_");
     doc.save(nombreArchivo);
