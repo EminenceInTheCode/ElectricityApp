@@ -266,7 +266,7 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 32, 26);
+    doc.text("Instalaciones • Mantenimiento • Obras", 32, 26);
 
     // --- DATOS CORPORATIVOS ---
     let yPrestador = 19;
@@ -277,8 +277,7 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Técnico Electricista", 118, yPrestador + 4, { align: "right" });
-    doc.text("Cel: +54 9 223 456-7890", 118, yPrestador + 8, { align: "right" }); 
+    doc.text("Electricista", 118, yPrestador + 4, { align: "right" });
 
     // Bloque derecho del presupuesto
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
@@ -430,7 +429,7 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Técnico Electricista Responsable", 105, 276, { align: "center" });
+    doc.text("Electricista Responsable", 105, 276, { align: "center" });
 
     const nombreArchivo = `Presupuesto_${p.numero}_${p.nombre}_${p.apellido}.pdf`.replace(/\s+/g, "_");
     doc.save(nombreArchivo);
