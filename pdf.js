@@ -228,8 +228,7 @@ function construirPDF(p) {
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Técnico Electricista", 118, 19, { align: "right" });
-    doc.text("Cel: +54 9 223 456-7890", 118, 22, { align: "right" }); 
+    doc.text("Electricista", 118, 19, { align: "right" });
 
     // Bloque Número
     doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
@@ -343,18 +342,6 @@ function construirPDF(p) {
     doc.setTextColor(successColor[0], successColor[1], successColor[2]);
     doc.text("TOTAL:", 134, yTotales + 14.5);
     doc.text(p.total.includes("$") ? p.total : `$${p.total}`, 191, yTotales + 14.5, { align: "right" });
-
-    // Pie de página compactado
-    doc.setDrawColor(210, 215, 220);
-    doc.line(65, 275, 145, 275);
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-    doc.text("Ian Busto", 105, 279, { align: "center" });
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Técnico Electricista Responsable", 105, 282, { align: "center" });
 
     doc.save(`Presupuesto_${p.numero}_${p.nombre}.pdf`);
 }
