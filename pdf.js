@@ -203,47 +203,55 @@ function construirPDF(p) {
     const successColor = [2, 196, 105];
     const darkColor = [40, 44, 52];
 
-    // --- ENCABEZADO ACHICADO ---
+    // --- ENCABEZADO COMPACTO ---
     doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.rect(0, 0, 210, 25, "F"); 
+    doc.rect(0, 0, 210, 20, "F"); 
     
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(16);
+    doc.setFontSize(14);
     doc.text("ELECTRICIDAD", 15, 12);
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont("Helvetica", "normal");
-    doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 15, 17);
+    doc.text("Instalaciones Eléctricas • Mantenimiento • Obras", 15, 16);
     
+    // Tu nombre y cargo arriba a la derecha
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("Ian Busto", 195, 14, { align: "right" });
+    doc.setFontSize(10);
+    doc.text("Ian Busto", 195, 9, { align: "right" });
+    doc.setFontSize(7);
+    doc.setFont("Helvetica", "normal");
+    doc.text("Técnico Electricista", 195, 13, { align: "right" });
 
-    // --- DATOS AGRUPADOS ---
+    // --- DATOS CLIENTE Y PRESUPUESTO (Todo en una banda) ---
     doc.setFillColor(245, 245, 245);
-    doc.rect(15, 30, 180, 28, "F");
+    doc.rect(15, 25, 180, 20, "F");
     
     doc.setTextColor(darkColor[0], darkColor[1], darkColor[2]);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
+    
+    // Izquierda: Presupuesto
     doc.setFont("Helvetica", "bold");
-    doc.text(`PRESUPUESTO N°: ${p.numero}`, 20, 37);
-    doc.text(`FECHA: ${formatearFecha(p.fecha)}`, 20, 43);
-    doc.text(`VENCE: ${formatearFecha(p.vencimiento)}`, 20, 49);
-
-    doc.text("CLIENTE:", 110, 37);
+    doc.text(`PRESUPUESTO: ${p.numero}`, 20, 31);
     doc.setFont("Helvetica", "normal");
-    doc.text(`${p.nombre} ${p.apellido}`, 110, 43);
-    doc.text(`Dir: ${p.direccion || "---"}`, 110, 49);
-    doc.text(`Tel: ${p.telefono || "---"}`, 110, 55);
+    doc.text(`Fecha: ${formatearFecha(p.fecha)}`, 20, 36);
+    doc.text(`Vence: ${formatearFecha(p.vencimiento)}`, 20, 41);
+
+    // Derecha: Cliente
+    doc.setFont("Helvetica", "bold");
+    doc.text("CLIENTE:", 110, 31);
+    doc.setFont("Helvetica", "normal");
+    doc.text(`${p.nombre} ${p.apellido} | Tel: ${p.telefono || "---"}`, 110, 36);
+    doc.text(`Dir: ${p.direccion || "---"}`, 110, 41);
 
     // --- TABLAS ---
-    let yStart = 65;
-    const tableStyles = { fontSize: 8, cellPadding: 1.5 };
+    let yStart = 50;
+    const tableStyles = { fontSize: 8, cellPadding: 1 };
     const headStyles = { fillColor: primaryColor, textColor: 255 };
 
     if (p.trabajos && p.trabajos.length > 0) {
         doc.setFont("Helvetica", "bold");
-        doc.setFontSize(9);
+        doc.setFontSize(8);
         doc.text("DETALLE DE MANO DE OBRA", 15, yStart);
         doc.autoTable({
             startY: yStart + 2,
@@ -251,10 +259,11 @@ function construirPDF(p) {
             body: p.trabajos.map(t => [t.trabajo, t.cantidad, t.precio, t.total]),
             theme: "striped", headStyles: headStyles, styles: tableStyles
         });
-        yStart = doc.lastAutoTable.finalY + 8;
+        yStart = doc.lastAutoTable.finalY + 5;
     }
 
     if (p.materiales && p.materiales.length > 0 && p.materiales[0].trabajo.trim() !== "") {
+        doc.setFont("Helvetica", "bold");
         doc.text("MATERIALES", 15, yStart);
         doc.autoTable({
             startY: yStart + 2,
@@ -262,27 +271,24 @@ function construirPDF(p) {
             body: p.materiales.map(m => [m.trabajo, m.cantidad, m.precio, m.total]),
             theme: "striped", headStyles: { fillColor: [80, 80, 80] }, styles: tableStyles
         });
-        yStart = doc.lastAutoTable.finalY + 8;
+        yStart = doc.lastAutoTable.finalY + 5;
     }
 
     // --- TOTALES AL FINAL ---
-    const yFinal = 260; 
-    doc.setDrawColor(200, 200, 200);
-    doc.line(130, yFinal - 5, 195, yFinal - 5);
-
+    const yFinal = 265; 
+    doc.line(130, yFinal - 4, 195, yFinal - 4);
     doc.setFont("Helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.text("Subtotal Mano de Obra:", 135, yFinal);
     doc.text(p.subtotalMO, 195, yFinal, { align: "right" });
-    
-    doc.text("Subtotal Materiales:", 135, yFinal + 5);
-    doc.text(p.subtotalMat, 195, yFinal + 5, { align: "right" });
+    doc.text("Subtotal Materiales:", 135, yFinal + 4);
+    doc.text(p.subtotalMat, 195, yFinal + 4, { align: "right" });
 
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setTextColor(successColor[0], successColor[1], successColor[2]);
-    doc.text("TOTAL:", 135, yFinal + 12);
-    doc.text(p.total, 195, yFinal + 12, { align: "right" });
+    doc.text("TOTAL:", 135, yFinal + 10);
+    doc.text(p.total, 195, yFinal + 10, { align: "right" });
 
     doc.save(`Presupuesto_${p.numero}.pdf`);
 }
