@@ -301,11 +301,12 @@ async function cargarHistorial() {
         return;
     }
 
-    // ⬇️ ESTA ES LA LÍNEA QUE TENÉS QUE AGREGAR VOS ⬇️
-    window.listaPresupuestos = presupuestos;
+    // ⬇️ ACÁ ESTÁ EL PARCHE DE PERSISTENCIA PARA EL PDF ⬇️
+    window.listaPresupuestos = presupuestos || [];
+    localStorage.setItem("listaPresupuestos", JSON.stringify(presupuestos || []));
+    localStorage.setItem("presupuestos_cache", JSON.stringify(presupuestos || []));
 
     // Acá abajo sigue el resto de tu código que dibuja las filas en la tabla...
-
     presupuestosGlobales = presupuestos || [];
 
     let pendiente = 0, cobradoMes = 0;
@@ -323,6 +324,7 @@ async function cargarHistorial() {
         if (estadoMostrar === "Pendiente") pendiente += monto;
         if (p.estado === "Cobrado" && p.fecha.startsWith(mesActual)) cobradoMes += monto;
 
+        // ⚠️ ATENCIÓN: Cambié el botón del PDF para que busque por número exacto y no por índice
         tbody.innerHTML = `
         <tr>
             <td>${p.numero}</td>
@@ -331,7 +333,7 @@ async function cargarHistorial() {
             <td>$${p.total}</td>
             <td class="estado-${estadoMostrar}">${estadoMostrar}</td>
             <td>
-                <button onclick="descargarPresupuesto(${index})">📄</button>
+                <button onclick="generarPDF('${p.numero}')">📄</button>
                 <button onclick="cambiarEstado(${index}, '${p.estado}', ${p.id})">🔄</button>
                 <button onclick="eliminarPresupuesto(${p.id})">🗑️</button>
             </td>
